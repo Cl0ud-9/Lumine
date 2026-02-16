@@ -8,6 +8,7 @@ import Celebration from './pages/Celebration';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import EmailConfirmation from './pages/EmailConfirmation';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import MagicalBackground from './components/MagicalBackground';
@@ -96,6 +97,7 @@ function App() {
                 <Routes>
                     <Route path="/auth/verify" element={<Login />} />
                     <Route path="/auth/register" element={<Signup />} />
+                    <Route path="/auth/email-confirmation" element={<EmailConfirmation />} />
                     <Route path="/auth/forgot-password" element={<ForgotPassword />} />
                     <Route path="/auth/reset-password" element={<ResetPassword />} />
                     <Route path="/admin/analytics" element={

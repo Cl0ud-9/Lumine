@@ -13,11 +13,6 @@
             -ms-text-size-adjust: 100%;
         }
 
-        table,
-        td {
-            mso-table-lspace: 0pt;
-            mso-table-rspace: 0pt;
-        }
 
         img {
             -ms-interpolation-mode: bicubic;
@@ -37,6 +32,14 @@
             width: 100% !important;
         }
     </style>
+    <!--[if mso]>
+    <style type="text/css">
+        table, td {
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }
+    </style>
+    <![endif]-->
 </head>
 
 <body
@@ -51,13 +54,17 @@
                     <tr>
                         <td align="center"
                             style="padding: 40px 0 30px 0; background: linear-gradient(135deg, #fce4ec 0%, #fff1f2 100%); border-bottom: 1px solid #fce7f3;">
-                            <div
-                                style="background-color: #ffffff; width: 80px; height: 80px; border-radius: 50%; display: inline-block; line-height: 80px; text-align: center; box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);">
-                                <!-- Hosted PNG for Mail Icon -->
-                                <img src="https://img.icons8.com/fluency-systems-filled/96/ec4899/mail.png"
-                                    alt="Mail Icon" width="36" height="36"
-                                    style="vertical-align: middle; border: 0; line-height: 100%; outline: none; text-decoration: none;">
-                            </div>
+                            <table border="0" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center" valign="middle"
+                                        style="background-color: #ffffff; width: 80px; height: 80px; border-radius: 50%; box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);">
+                                        <!-- Hosted PNG for Mail Icon -->
+                                        <img src="https://cdn-icons-png.flaticon.com/512/2099/2099199.png"
+                                            alt="Mail Icon" width="36" height="36"
+                                            style="display: block; margin: 0 auto; border: 0; outline: none; text-decoration: none;">
+                                    </td>
+                                </tr>
+                            </table>
                         </td>
                     </tr>
 
@@ -106,8 +113,8 @@
                         <td align="center" style="padding: 32px 40px 48px 40px;">
                             <p style="color: #9ca3af; font-size: 12px; margin: 0 0 8px 0;">
                                 <!-- Hosted PNG for Heart Icon -->
-                                <img src="https://img.icons8.com/material-rounded/48/f472b6/like--v1.png"
-                                    alt="Heart Icon" width="14" height="14" style="vertical-align: middle;">
+                                <img src="https://cdn-icons-png.flaticon.com/128/833/833472.png" alt="Heart Icon"
+                                    width="14" height="14" style="vertical-align: middle;">
                             </p>
                             <p style="color: #9ca3af; font-size: 12px; margin: 0;">Sent securely by Lumine</p>
                             <p style="color: #d1d5db; font-size: 11px; margin: 12px 0 0 0;">If you didn't create an

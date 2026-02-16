@@ -286,3 +286,73 @@ textarea {
   transform: translateY(6px);
   box-shadow: 0 4px 0 #8b5cf6;
 }
+
+.bubbly-delete {
+  background: linear-gradient(-45deg, #ff4d6d, #ff85a1, #ff2e63, #ff99ac);
+  background-size: 300% 300%;
+  animation: shimmer 5s infinite linear;
+  box-shadow:
+    0 10px 0 #c92a4e,
+    0 15px 30px rgba(255, 77, 109, 0.4),
+    inset 0 5px 15px rgba(255, 255, 255, 0.8);
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.bubbly-delete:active {
+  transform: translateY(6px);
+  box-shadow: 0 4px 0 #c92a4e;
+}
+
+/* Custom Scrollbar — hide native scrollbar completely to prevent cursor flicker.
+   Scroll still works via mousewheel / trackpad / touch. */
+.custom-scrollbar {
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE / old Edge */
+  position: relative;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  display: none;
+  /* Chrome / Safari / new Edge */
+}
+
+/* Fade using mask-image for transparency support on any background */
+.custom-scrollbar-wrapper {
+  position: relative;
+  /* Mask fades out the bottom 20px */
+  -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+}
+
+/* Global page scrollbar — keep styled, hidden scrollbar buttons */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #ffb7ce transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ffb7ce;
+  border-radius: 4px;
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ff3e6d;
+  border: 0px solid transparent;
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+}

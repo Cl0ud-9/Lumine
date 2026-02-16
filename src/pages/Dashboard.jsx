@@ -1,31 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import CustomCursor from '../components/CustomCursor';
+import HelpModal from '../components/HelpModal';
 import Toast from '../components/Toast';
 
 const Dashboard = () => {
     const [invites, setInvites] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreateForm, setShowCreateForm] = useState(false);
+    const [showHelpModal, setShowHelpModal] = useState(false);
     const [recipientName, setRecipientName] = useState('');
     const [creating, setCreating] = useState(false);
     const [toast, setToast] = useState({ show: false, message: '' });
+    const [deleteModal, setDeleteModal] = useState({ show: false, id: null, name: '' });
+    const [deleteAccountModal, setDeleteAccountModal] = useState(false);
+
     const navigate = useNavigate();
+    const channelRef = useRef(null);
+    const userIdRef = useRef(null);
 
-    useEffect(() => {
-        fetchInvites();
-    }, []);
-
-    const fetchInvites = async () => {
-        setLoading(true);
+    // Stable fetch function that doesn't cause re-subscriptions
+    const fetchInvites = useCallback(async (showLoading = true) => {
+        if (showLoading) setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
             navigate('/auth/verify');
             return;
         }
+
+        userIdRef.current = user.id;
 
         const { data, error } = await supabase
             .from('invites')
@@ -38,8 +44,69 @@ const Dashboard = () => {
         } else {
             setInvites(data || []);
         }
-        setLoading(false);
-    };
+        if (showLoading) setLoading(false);
+    }, [navigate]);
+
+    useEffect(() => {
+        // Initial fetch
+        fetchInvites();
+
+        // Set up Supabase Realtime subscription
+        const setupRealtime = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            channelRef.current = supabase
+                .channel('dashboard-invites')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'invites',
+                        filter: `user_id=eq.${user.id}`
+                    },
+                    (payload) => {
+                        console.log('Realtime update:', payload.eventType);
+                        // Re-fetch all invites on any change for consistency
+                        fetchInvites(false);
+                    }
+                )
+                .subscribe();
+        };
+
+        setupRealtime();
+
+        // Refresh when tab regains focus (fallback for missed events)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                fetchInvites(false);
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            if (channelRef.current) {
+                supabase.removeChannel(channelRef.current);
+            }
+        };
+    }, [fetchInvites]);
+
+    // Scroll Lock Effect
+    useEffect(() => {
+        if (showCreateForm || showHelpModal || deleteModal.show || deleteAccountModal) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [showCreateForm, showHelpModal, deleteModal.show, deleteAccountModal]);
+
+
 
     const createInvite = async (e) => {
         e.preventDefault();
@@ -77,8 +144,13 @@ const Dashboard = () => {
         setToast({ show: true, message: 'URL and message copied!' });
     };
 
-    const deleteInvite = async (id) => {
-        if (!confirm('Are you sure you want to delete this URL?')) return;
+    const deleteInvite = (id, name) => {
+        setDeleteModal({ show: true, id, name });
+    };
+
+    const confirmDelete = async () => {
+        const id = deleteModal.id;
+        setDeleteModal({ show: false, id: null, name: '' }); // Close immediately for responsiveness
 
         const { error } = await supabase
             .from('invites')
@@ -95,6 +167,26 @@ const Dashboard = () => {
     };
 
     const handleLogout = async () => {
+        await supabase.auth.signOut();
+        navigate('/auth/verify');
+    };
+
+    const handleDeleteAccount = async () => {
+        setDeleteAccountModal(false);
+
+        // 1. Delete all user's invites
+        const { error: deleteError } = await supabase
+            .from('invites')
+            .delete()
+            .eq('user_id', userIdRef.current);
+
+        if (deleteError) {
+            console.error('Error deleting data:', deleteError);
+            setToast({ show: true, message: 'Failed to delete data. Please try again.' });
+            return;
+        }
+
+        // 2. Sign out
         await supabase.auth.signOut();
         navigate('/auth/verify');
     };
@@ -119,6 +211,10 @@ const Dashboard = () => {
         const now = new Date();
         const date = new Date(dateString);
         const diffMs = now - date;
+
+        // Guard against future timestamps (clock skew)
+        if (diffMs < 0) return 'Just now';
+
         const diffMins = Math.floor(diffMs / 60000);
         const diffHours = Math.floor(diffMins / 60);
         const diffDays = Math.floor(diffHours / 24);
@@ -134,6 +230,10 @@ const Dashboard = () => {
         const end = firstYes || usedAt;
         if (!firstOpened || !end) return null;
         const diff = new Date(end) - new Date(firstOpened);
+
+        // Guard: if diff is negative or zero (clock skew / instant click), show "Instant"
+        if (diff <= 0) return 'Instant ⚡';
+
         const seconds = Math.floor(diff / 1000);
         const minutes = Math.floor(seconds / 60);
         const hours = Math.floor(minutes / 60);
@@ -142,7 +242,23 @@ const Dashboard = () => {
         if (days > 0) return `${days}d ${hours % 24}h`;
         if (hours > 0) return `${hours}h ${minutes % 60}m`;
         if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-        return `${seconds}s`;
+        if (seconds > 0) return `${seconds}s`;
+        return 'Instant ⚡';
+    };
+
+    // Format duration in ms to readable string
+    const formatDuration = (ms) => {
+        if (ms <= 0) return 'Instant ⚡';
+        const seconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (days > 0) return `${days}d ${hours % 24}h`;
+        if (hours > 0) return `${hours}h ${minutes % 60}m`;
+        if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+        if (seconds > 0) return `${seconds}s`;
+        return 'Instant ⚡';
     };
 
     // Calculate stats
@@ -154,18 +270,19 @@ const Dashboard = () => {
             const yesInvites = invites.filter(i => i.used && i.first_opened_at && (i.first_yes_at || i.used_at));
             if (yesInvites.length === 0) return '-';
 
-            // Calculate duration for each invite
-            const durations = yesInvites.map(i => {
-                const endTime = new Date(i.first_yes_at || i.used_at);
-                const startTime = new Date(i.first_opened_at);
-                return endTime - startTime;
-            });
+            // Calculate duration for each invite, filtering out invalid (negative) values
+            const durations = yesInvites
+                .map(i => {
+                    const endTime = new Date(i.first_yes_at || i.used_at);
+                    const startTime = new Date(i.first_opened_at);
+                    return endTime - startTime;
+                })
+                .filter(d => d >= 0); // Remove any negative durations (clock skew)
+
+            if (durations.length === 0) return 'Instant ⚡';
 
             const minDuration = Math.min(...durations);
-
-            // We can reuse calculateTimeToYes by passing a start time of 0 and end time of the duration
-            // This works because calculateTimeToYes subtracts start from end
-            return calculateTimeToYes(new Date(0).toISOString(), new Date(minDuration).toISOString(), null);
+            return formatDuration(minDuration);
         })()
     };
 
@@ -235,7 +352,7 @@ const Dashboard = () => {
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
                     <div>
                         <motion.h1
-                            className="font-['Fredoka'] text-2xl sm:text-3xl md:text-4xl font-bold text-[#ff4d7d] mb-2"
+                            className="font-['Fredoka'] text-2xl sm:text-3xl md:text-4xl font-bold text-[#ff4d7d] mb-1 sm:mb-2"
                             style={{ willChange: "transform", transform: "translateZ(30px)" }}
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
@@ -245,15 +362,33 @@ const Dashboard = () => {
                                 Lumine Dashboard
                             </span>
                         </motion.h1>
-                        <p className="font-['Quicksand'] text-sm sm:text-base text-gray-600 font-semibold">Manage your romantic proposals</p>
+                        <p className="font-['Quicksand'] text-xs sm:text-base text-gray-600 font-semibold">
+                            Manage your romantic proposals
+                        </p>
                     </div>
-                    <button
-                        onClick={handleLogout}
-                        className="font-['Quicksand'] px-4 sm:px-6 py-2 sticker-card rounded-2xl text-sm sm:text-base text-gray-600 hover:text-gray-800 hover:shadow-lg transition font-semibold"
-                    >
-                        Logout
-                    </button>
+                    <div className="flex gap-3 sm:gap-4 w-full sm:w-auto">
+                        <motion.button
+                            whileHover={{ scale: 1.05, rotate: 2 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setShowHelpModal(true)}
+                            className="flex-1 sm:flex-none justify-center font-['Quicksand'] px-4 sm:px-6 py-2 bg-white/40 backdrop-blur-md border-[3px] border-white shadow-lg rounded-2xl text-pink-500 font-bold flex items-center gap-2 hover:bg-white/60 transition-all text-sm sm:text-base"
+                            style={{ transform: "rotate(1deg)" }}
+                        >
+                            <span className="material-symbols-outlined text-lg sm:text-xl fill-1">lightbulb</span>
+                            <span>Guide</span>
+                        </motion.button>
+                        <motion.button
+                            whileHover={{ scale: 1.05, rotate: -2 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleLogout}
+                            className="flex-1 sm:flex-none justify-center font-['Quicksand'] px-4 sm:px-6 py-2 sticker-card rounded-2xl text-gray-600 font-bold hover:text-gray-800 transition-all text-sm sm:text-base"
+                        >
+                            Logout
+                        </motion.button>
+                    </div>
                 </div>
+
+                <HelpModal show={showHelpModal} onClose={() => setShowHelpModal(false)} />
 
                 {/* Summary Stats */}
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
@@ -262,11 +397,11 @@ const Dashboard = () => {
                         animate={{ opacity: 1, y: 0 }}
                         className="rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[3rem] p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-fuchsia-400 to-fuchsia-500 shadow-xl"
                     >
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between mb-2 sm:mb-3">
                             <div className="font-['Quicksand'] text-white/90 text-[10px] sm:text-xs lg:text-sm font-semibold uppercase tracking-wide">Total URLs</div>
-                            <span className="material-symbols-outlined text-xl sm:text-2xl lg:text-3xl text-white/80">link</span>
+                            <span className="material-symbols-outlined text-lg sm:text-2xl lg:text-3xl text-white/80">link</span>
                         </div>
-                        <div className="font-['Fredoka'] text-2xl sm:text-3xl lg:text-4xl font-bold text-white">{stats.total}</div>
+                        <div className="font-['Fredoka'] text-xl sm:text-3xl lg:text-4xl font-bold text-white">{stats.total}</div>
                     </motion.div>
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -274,11 +409,11 @@ const Dashboard = () => {
                         transition={{ delay: 0.1 }}
                         className="rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[3rem] p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-pink-400 to-pink-500 shadow-xl"
                     >
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between mb-2 sm:mb-3">
                             <div className="font-['Quicksand'] text-white/90 text-[10px] sm:text-xs lg:text-sm font-semibold uppercase tracking-wide">Success Rate</div>
-                            <span className="material-symbols-outlined text-xl sm:text-2xl lg:text-3xl text-white/80">favorite</span>
+                            <span className="material-symbols-outlined text-lg sm:text-2xl lg:text-3xl text-white/80">favorite</span>
                         </div>
-                        <div className="font-['Fredoka'] text-2xl sm:text-3xl lg:text-4xl font-bold text-white">{stats.successRate}%</div>
+                        <div className="font-['Fredoka'] text-xl sm:text-3xl lg:text-4xl font-bold text-white">{stats.successRate}%</div>
                     </motion.div>
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -286,11 +421,11 @@ const Dashboard = () => {
                         transition={{ delay: 0.2 }}
                         className="col-span-2 lg:col-span-1 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[3rem] p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-purple-400 to-purple-500 shadow-xl"
                     >
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between mb-2 sm:mb-3">
                             <div className="font-['Quicksand'] text-white/90 text-[10px] sm:text-xs lg:text-sm font-semibold uppercase tracking-wide">Fastest Yes</div>
-                            <span className="material-symbols-outlined text-xl sm:text-2xl lg:text-3xl text-white/80">bolt</span>
+                            <span className="material-symbols-outlined text-lg sm:text-2xl lg:text-3xl text-white/80">bolt</span>
                         </div>
-                        <div className="font-['Fredoka'] text-2xl sm:text-3xl lg:text-4xl font-bold text-white">{stats.fastestYes}</div>
+                        <div className="font-['Fredoka'] text-xl sm:text-3xl lg:text-4xl font-bold text-white">{stats.fastestYes}</div>
                     </motion.div>
                 </div>
 
@@ -299,10 +434,10 @@ const Dashboard = () => {
                     whileHover={{ scale: 1.01, y: -2 }}
                     whileTap={{ scale: 0.99 }}
                     onClick={() => setShowCreateForm(true)}
-                    className="bubbly-yes w-full mb-8 sm:mb-10 py-4 sm:py-5 rounded-[2rem] sm:rounded-[2.5rem] font-['Fredoka'] text-white text-base sm:text-lg uppercase tracking-wider shadow-2xl hover:shadow-pink-200 transition-all font-semibold"
+                    className="bubbly-yes w-full mb-8 sm:mb-10 py-3 sm:py-5 rounded-[2rem] sm:rounded-[2.5rem] font-['Fredoka'] text-white text-base sm:text-lg uppercase tracking-wider shadow-2xl hover:shadow-pink-200 transition-all font-semibold"
                 >
                     <span className="flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined text-2xl">add_circle</span>
+                        <span className="material-symbols-outlined text-xl sm:text-2xl">add_circle</span>
                         Create New Proposal URL
                     </span>
                 </motion.button>
@@ -357,6 +492,118 @@ const Dashboard = () => {
                                         </button>
                                     </div>
                                 </form>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Delete Confirmation Modal */}
+                <AnimatePresence>
+                    {deleteModal.show && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                            onClick={() => setDeleteModal({ show: false, id: null, name: '' })}
+                        >
+                            <motion.div
+                                initial={{ scale: 0.95, opacity: 0, rotate: -2 }}
+                                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                                exit={{ scale: 0.95, opacity: 0 }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="bg-white/90 backdrop-blur-md rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border-4 border-white text-center relative overflow-hidden"
+                            >
+                                <div className="mb-6 flex justify-center">
+                                    <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-4xl text-red-500">heart_broken</span>
+                                    </div>
+                                </div>
+                                <motion.h3
+                                    className="font-['Fredoka'] text-2xl font-bold text-gray-800 mb-3"
+                                    style={{ willChange: "transform", transform: "translateZ(30px)" }}
+                                    animate={{ y: [0, -4, 0] }}
+                                    transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
+                                >
+                                    Take it back? 🙈
+                                </motion.h3>
+                                <p className="font-['Quicksand'] text-gray-500 font-semibold mb-8 leading-relaxed">
+                                    The link for <span className="text-pink-500 font-bold">{deleteModal.name}</span> will disappear forever. Like it never happened! 🤫
+                                </p>
+                                <div className="flex gap-3">
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => setDeleteModal({ show: false, id: null, name: '' })}
+                                        className="flex-1 py-3 rounded-2xl font-['Quicksand'] font-bold text-gray-600 bg-gray-100 border-2 border-transparent hover:bg-white hover:border-pink-200 transition-all shadow-sm"
+                                    >
+                                        Nah, keep it
+                                    </motion.button>
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={confirmDelete}
+                                        className="flex-1 py-3 rounded-2xl font-['Fredoka'] font-bold text-white bubbly-delete text-lg tracking-wide uppercase shadow-lg hover:shadow-red-200"
+                                    >
+                                        Vanish it
+                                    </motion.button>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Delete Account Confirmation Modal */}
+                <AnimatePresence>
+                    {deleteAccountModal && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                            onClick={() => setDeleteAccountModal(false)}
+                        >
+                            <motion.div
+                                initial={{ scale: 0.95, opacity: 0, rotate: 2 }}
+                                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                                exit={{ scale: 0.95, opacity: 0 }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="bg-white/90 backdrop-blur-md rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border-4 border-red-50 text-center relative overflow-hidden"
+                            >
+                                <div className="mb-6 flex justify-center">
+                                    <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-4xl text-red-500">warning</span>
+                                    </div>
+                                </div>
+                                <motion.h3
+                                    className="font-['Fredoka'] text-2xl font-bold text-gray-800 mb-3"
+                                    style={{ willChange: "transform", transform: "translateZ(30px)" }}
+                                    animate={{ y: [0, -4, 0] }}
+                                    transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
+                                >
+                                    Breaking up with us? 💔
+                                </motion.h3>
+                                <p className="font-['Quicksand'] text-gray-500 font-semibold mb-8 leading-relaxed">
+                                    We'll miss you! All your love letters and links will be lost in space forever. Are you sure? 🚀
+                                </p>
+                                <div className="flex gap-3">
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => setDeleteAccountModal(false)}
+                                        className="flex-1 py-3 rounded-2xl font-['Quicksand'] font-bold text-gray-600 bg-gray-100 border-2 border-transparent hover:bg-white hover:border-red-200 transition-all shadow-sm"
+                                    >
+                                        I'll stay
+                                    </motion.button>
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={handleDeleteAccount}
+                                        className="flex-1 py-3 rounded-2xl font-['Fredoka'] font-bold text-white bubbly-delete text-lg tracking-wide uppercase shadow-lg hover:shadow-red-200"
+                                    >
+                                        Delete Forever
+                                    </motion.button>
+                                </div>
                             </motion.div>
                         </motion.div>
                     )}
@@ -456,6 +703,27 @@ const Dashboard = () => {
                         </motion.div>
                     )}
                 </div>
+
+                {/* Danger Zone */}
+                <div className="mt-12 sm:mt-16 pt-8 border-t-2 border-red-100">
+                    <h3 className="font-['Fredoka'] text-xl font-bold text-red-400 mb-4 flex items-center gap-2">
+                        <span className="material-symbols-outlined">warning</span> Danger Zone
+                    </h3>
+                    <div className="bg-red-50 rounded-[2rem] p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-2 border-red-100">
+                        <div>
+                            <h4 className="font-['Fredoka'] text-lg font-bold text-red-500 mb-1">Break up with us? 💔</h4>
+                            <p className="font-['Quicksand'] text-sm text-red-400 font-semibold max-w-md">
+                                We get it, sometimes things just don't work out. This will delete your account and all data. No hard feelings! (But it's permanent!)
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setDeleteAccountModal(true)}
+                            className="bubbly-delete px-6 py-3 rounded-2xl font-['Fredoka'] text-white font-semibold uppercase tracking-wide hover:shadow-lg transition-all active:scale-95"
+                        >
+                            Delete Forever
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -510,7 +778,7 @@ const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTi
                     </span>
                 </div>
                 <button
-                    onClick={() => onDelete(invite.id)}
+                    onClick={() => onDelete(invite.id, invite.recipient_name)}
                     className="text-gray-300 hover:text-red-500 transition text-xl"
                 >
                     <span className="material-symbols-outlined text-xl">delete</span>
@@ -568,20 +836,22 @@ const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTi
                             <div className="font-['Quicksand'] text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-2">
                                 <span className="material-symbols-outlined text-sm">history</span> Visit History
                             </div>
-                            <div className="space-y-2 max-h-40 overflow-y-auto">
-                                {[...invite.visit_timestamps].reverse().map((timestamp, index) => (
-                                    <div key={index} className="flex items-center gap-2 text-sm">
-                                        <span className="text-purple-400 text-xs">•</span>
-                                        <span className="text-gray-700 font-medium">
-                                            {formatDateTime(timestamp)}
-                                        </span>
-                                        {index === 0 && (
-                                            <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-semibold">
-                                                Latest
+                            <div className="custom-scrollbar-wrapper">
+                                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                                    {[...invite.visit_timestamps].reverse().map((timestamp, index) => (
+                                        <div key={index} className="flex items-center gap-2 text-sm">
+                                            <span className="text-purple-400 text-xs">•</span>
+                                            <span className="text-gray-700 font-medium">
+                                                {formatDateTime(timestamp)}
                                             </span>
-                                        )}
-                                    </div>
-                                ))}
+                                            {index === 0 && (
+                                                <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-semibold">
+                                                    Latest
+                                                </span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
 
                             {/* No Clicks Counter */}
@@ -604,20 +874,22 @@ const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTi
                                     <div className="text-xs font-semibold text-pink-600 uppercase tracking-wide mb-2 flex items-center gap-2">
                                         <span className="material-symbols-outlined text-sm">favorite</span> "Yes" History
                                     </div>
-                                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                                        {[...invite.yes_timestamps].reverse().map((timestamp, index) => (
-                                            <div key={index} className="flex items-center gap-2 text-sm">
-                                                <span className="material-symbols-outlined text-xs text-pink-300">favorite</span>
-                                                <span className="text-gray-600 font-medium text-xs">
-                                                    {formatDateTime(timestamp)}
-                                                </span>
-                                                {index === 0 && (
-                                                    <span className="text-[10px] bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded-full font-bold">
-                                                        Latest
+                                    <div className="custom-scrollbar-wrapper">
+                                        <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
+                                            {[...invite.yes_timestamps].reverse().map((timestamp, index) => (
+                                                <div key={index} className="flex items-center gap-2 text-sm">
+                                                    <span className="material-symbols-outlined text-xs text-pink-300">favorite</span>
+                                                    <span className="text-gray-600 font-medium text-xs">
+                                                        {formatDateTime(timestamp)}
                                                     </span>
-                                                )}
-                                            </div>
-                                        ))}
+                                                    {index === 0 && (
+                                                        <span className="text-[10px] bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded-full font-bold">
+                                                            Latest
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             )}

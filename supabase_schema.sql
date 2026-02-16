@@ -41,17 +41,57 @@ create policy "Users can update own invites"
 on invites for update
 using (auth.uid() = user_id);
 
--- Anyone can update invite analytics by token (for tracking visits and "Yes" clicks)
-create policy "Public can update invite by token"
-on invites for update
-using (token is not null);
+-- Allow users to delete their own created URLs
+create policy "Users can delete own invites"
+on invites for delete
+using (auth.uid() = user_id);
 
--- Function to increment visit counter
-create or replace function increment_visits(url_token text)
+
+-- SECURE ANALYTICS FUNCTIONS (RPCs)
+-- These allow updating analytics without exposing public table access
+
+-- 1. Secure function to track visits (handles timestamps + counter)
+create or replace function track_visit(url_token text)
 returns void as $$
 begin
   update invites
-  set total_visits = total_visits + 1
+  set 
+    total_visits = total_visits + 1,
+    visit_timestamps = array_append(visit_timestamps, now()),
+    first_opened_at = coalesce(first_opened_at, now())
   where token = url_token;
+end;
+$$ language plpgsql security definer;
+
+-- 2. Secure function to track "Yes" response
+create or replace function track_yes(url_token text)
+returns void as $$
+begin
+  update invites
+  set 
+    used = true,
+    used_at = now(),
+    yes_timestamps = array_append(yes_timestamps, now()),
+    first_yes_at = coalesce(first_yes_at, now()),
+    first_opened_at = coalesce(first_opened_at, now()) -- Fix race condition: ensure opened_at exists
+  where token = url_token;
+end;
+$$ language plpgsql security definer;
+
+-- 3. Secure function to track "No" clicks
+create or replace function track_no(url_token text)
+returns void as $$
+begin
+  update invites
+  set no_clicks = no_clicks + 1
+  where token = url_token;
+end;
+$$ language plpgsql security definer;
+
+-- 4. Secure function to check if invite exists (returns bool)
+create or replace function check_invite_exists(url_token text)
+returns boolean as $$
+begin
+  return exists(select 1 from invites where token = url_token);
 end;
 $$ language plpgsql security definer;

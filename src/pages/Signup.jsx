@@ -40,7 +40,7 @@ const Signup = () => {
             setError(authError.message);
             setLoading(false);
         } else {
-            navigate('/auth/verify');
+            navigate('/auth/email-confirmation');
         }
     };
 
@@ -108,10 +108,10 @@ const Signup = () => {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-pink-500 transition-colors focus:outline-none"
+                                    className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none ${showPassword ? 'text-pink-500' : 'text-gray-400 md:hover:text-pink-500'}`}
                                 >
                                     <span className="material-symbols-outlined text-lg">
-                                        {showPassword ? 'visibility' : 'visibility_off'}
+                                        {showPassword ? 'favorite' : 'favorite_border'}
                                     </span>
                                 </button>
                             </div>
@@ -133,10 +133,10 @@ const Signup = () => {
                                 <button
                                     type="button"
                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-pink-500 transition-colors focus:outline-none"
+                                    className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none ${showConfirmPassword ? 'text-pink-500' : 'text-gray-400 md:hover:text-pink-500'}`}
                                 >
                                     <span className="material-symbols-outlined text-lg">
-                                        {showConfirmPassword ? 'visibility' : 'visibility_off'}
+                                        {showConfirmPassword ? 'favorite' : 'favorite_border'}
                                     </span>
                                 </button>
                             </div>
