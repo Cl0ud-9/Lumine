@@ -160,4 +160,4 @@ Licensed under the **MIT License**.
 
 ---
 
-**Made with ❤️ for the ones who ask.**
+**Made with ❤️ for the ones who ask**
