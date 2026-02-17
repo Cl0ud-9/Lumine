@@ -28,6 +28,8 @@ Lumine allows users to generate personalized proposal links that initiate a play
 - 💌 **Interactive Proposal Page** - "No" button evades the cursor; "Yes" triggers a celebration.
 - 📊 **Real-Time Dashboard** - Track exactly when they opened it and how long it took them to say yes.
 - 🎨 **Premium Aesthetic** - Glassmorphism, pastel gradients, and "bubbly" animations.
+- 🔄 **Interactive Parallax** - Floating UI elements that react to mouse movement and tilt.
+- 🎵 **Music & Audio** - Automatic romantic background music with dedicated mute/unmute controls.
 - 🔐 **Secure Authentication** - User accounts managed via Supabase Auth.
 - 📱 **Fully Responsive** - Flawless experience on mobile and desktop.
 - 💨 **Fun & Playful** - Thematic "Delete" warnings and bouncy interactions.
