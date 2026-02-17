@@ -158,4 +158,4 @@ Licensed under the **MIT License**.
 
 ---
 
-**Made with ❤️**
+**Made with ❤️ for the ones who ask.**

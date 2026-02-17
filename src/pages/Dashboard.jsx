@@ -358,7 +358,7 @@ const Dashboard = () => {
                             transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                         >
                             <span className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-2xl sm:text-3xl md:text-4xl">favorite</span>
+                                <img src="/favicon.png" alt="Lumine Logo" className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain" />
                                 Lumine Dashboard
                             </span>
                         </motion.h1>
@@ -399,7 +399,7 @@ const Dashboard = () => {
                     >
                         <div className="flex items-center justify-between mb-2 sm:mb-3">
                             <div className="font-['Quicksand'] text-white/90 text-[10px] sm:text-xs lg:text-sm font-semibold uppercase tracking-wide">Total URLs</div>
-                            <span className="material-symbols-outlined text-lg sm:text-2xl lg:text-3xl text-white/80">link</span>
+                            <span className="material-symbols-outlined text-lg sm:text-2xl lg:text-3xl text-white/80 -rotate-45">link</span>
                         </div>
                         <div className="font-['Fredoka'] text-xl sm:text-3xl lg:text-4xl font-bold text-white">{stats.total}</div>
                     </motion.div>
@@ -706,7 +706,7 @@ const Dashboard = () => {
 
                 {/* Danger Zone */}
                 <div className="mt-12 sm:mt-16 pt-8 border-t-2 border-red-100">
-                    <h3 className="font-['Fredoka'] text-xl font-bold text-red-400 mb-4 flex items-center gap-2">
+                    <h3 className="font-['Fredoka'] text-xl font-bold text-red-500 mb-4 flex items-center gap-2">
                         <span className="material-symbols-outlined">warning</span> Danger Zone
                     </h3>
                     <div className="bg-red-50 rounded-[2rem] p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-2 border-red-100">

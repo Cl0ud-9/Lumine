@@ -1,5 +1,5 @@
-import React, { useState, useEffect, forwardRef } from 'react';
-import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, forwardRef, useRef } from 'react';
+import { motion, useMotionValue, useSpring, useTransform, AnimatePresence, useAnimation } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 
 const CELEBRATION_PHRASES = [
@@ -13,11 +13,14 @@ const CELEBRATION_PHRASES = [
 
 const SPARKLE_COLORS = ['#d8b4fe', '#f9a8d4', '#ffffff'];
 const CONFETTI_COLORS = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+const SHAKE_ANIMATION = [0, -5, 5, 0];
 
 const Celebration = forwardRef((props, ref) => {
     const { boyfriendName } = useApp();
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const controls = useAnimation(); // Animation controls for the emoji
+    const yesControls = useAnimation(); // Animation controls for the YES button
 
     const mouseX = useMotionValue(0.5);
     const mouseY = useMotionValue(0.5);
@@ -25,6 +28,27 @@ const Celebration = forwardRef((props, ref) => {
     const springConfig = { stiffness: 70, damping: 25, bounce: 0 };
     const smoothedX = useSpring(mouseX, springConfig);
     const smoothedY = useSpring(mouseY, springConfig);
+
+    // ... existing hooks ...
+
+    // Trigger initial entrance animation
+    useEffect(() => {
+        controls.start({
+            scale: 1,
+            rotate: -12,
+            opacity: 1,
+            transition: { type: "spring", bounce: 0.5, delay: 0.4 }
+        });
+
+        yesControls.start({
+            scale: 1,
+            rotate: 6,
+            opacity: 1,
+            transition: { type: "spring", bounce: 0.5, delay: 1 }
+        });
+    }, [controls, yesControls]);
+
+    // ... existing code ...
 
     const intensity = isMobile ? 0.2 : 1;
 
@@ -88,6 +112,66 @@ const Celebration = forwardRef((props, ref) => {
         return [...hearts, ...sparkles, ...confetti];
     });
 
+    const [isMuted, setIsMuted] = useState(false);
+    const audioRef = useRef(null);
+
+    // Audio initialization
+    // 1. FIX AUDIO - wrap play() calls with a cancellable guard
+    useEffect(() => {
+        let cancelled = false;
+
+        const firecrackers = new Audio('/audio/fire_crackers.mp3');
+        const playFirecrackers = async () => {
+            try {
+                if (!cancelled) await firecrackers.play();
+            } catch (e) {
+                if (e.name !== 'AbortError') console.log("Audio play failed", e);
+            }
+        };
+        playFirecrackers();
+
+        audioRef.current = new Audio('/audio/until_i_found_her.mp3');
+        audioRef.current.loop = true;
+        audioRef.current.volume = 0.5;
+
+        const musicTimeout = setTimeout(async () => {
+            try {
+                if (!cancelled && !isMuted) await audioRef.current.play();
+            } catch (e) {
+                if (e.name !== 'AbortError') console.log("Music play failed", e);
+            }
+        }, 3000);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(musicTimeout);
+            firecrackers.pause();
+            firecrackers.currentTime = 0;
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+            }
+        };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Handle Mute Toggle
+    const hasInitializedAudio = useRef(false);
+    useEffect(() => {
+        if (!hasInitializedAudio.current) {
+            hasInitializedAudio.current = true;
+            return; // Skip on first mount — audio setup is handled in the other useEffect
+        }
+        if (audioRef.current) {
+            if (isMuted) {
+                audioRef.current.pause();
+            } else {
+                audioRef.current.play().catch(e => {
+                    if (e.name !== 'AbortError') console.log("Resume failed", e);
+                });
+            }
+        }
+    }, [isMuted]);
+
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
         checkMobile();
@@ -105,6 +189,7 @@ const Celebration = forwardRef((props, ref) => {
         };
 
         window.addEventListener('mousemove', handleMouseMove);
+
         return () => {
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('resize', checkMobile);
@@ -115,6 +200,8 @@ const Celebration = forwardRef((props, ref) => {
     const [phrase] = useState(() => CELEBRATION_PHRASES[Math.floor(Math.random() * CELEBRATION_PHRASES.length)]);
 
     const [popHearts, setPopHearts] = useState([]);
+    const [celebrationPops, setCelebrationPops] = useState([]); // Celebration emoji pops
+    const [yesPops, setYesPops] = useState([]); // YES button pops
     const [heat, setHeat] = useState(0);
     const [isHolding, setIsHolding] = useState(false);
     const holdIntervalRef = React.useRef(null);
@@ -178,6 +265,7 @@ const Celebration = forwardRef((props, ref) => {
             }}
             className="bg-gradient-mesh font-body min-h-screen w-screen relative overflow-hidden flex items-center justify-center p-4 z-[70]"
         >
+
 
             <motion.div
                 style={{ x: layer1X, y: layer1Y }}
@@ -259,28 +347,138 @@ const Celebration = forwardRef((props, ref) => {
             <main className="relative z-20 w-full max-w-2xl px-6 perspective-1000">
                 <motion.div
                     style={{ x: layer4X, y: layer4Y }}
-                    className="absolute inset-0 pointer-events-none z-30"
+                    className="absolute inset-0 pointer-events-none z-[80]"
                 >
                     <motion.div
-                        initial={{ scale: 0, rotate: -30, opacity: 0 }}
-                        animate={{ scale: 1, rotate: -12, opacity: 1 }}
-                        transition={{ type: "spring", bounce: 0.5, delay: 0.4 }}
-                        className="absolute -top-6 -left-2 md:-top-12 md:-left-8"
+                        initial={{ scale: 0, rotate: 30, opacity: 0 }}
+                        animate={{ scale: 1, rotate: 20, opacity: 1 }}
+                        transition={{ delay: 1, duration: 0.5 }}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setIsMuted(!isMuted)}
+                        className="absolute -top-4 -right-2 md:-top-7 md:right-1 pointer-events-auto cursor-pointer z-50"
+                        style={{ right: '0' }}
                     >
-                        <div className="bg-white p-3 rounded-full shadow-lg border-2 border-pink-100">
+                        <div className="bg-white p-3 rounded-full shadow-lg border-2 border-pink-100 text-pink-500 hover:shadow-xl transition-all">
+                            <span className="material-symbols-outlined text-xl md:text-2xl">
+                                {isMuted ? 'music_off' : 'music_note'}
+                            </span>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ scale: 0, rotate: -30, opacity: 0 }}
+                        animate={controls}
+                        className="absolute -top-4 left-0 md:-top-6 md:-left-2 pointer-events-auto cursor-pointer"
+                        onClick={(e) => {
+                            // Bounce animation
+                            controls.start({
+                                scale: [1, 1.2, 0.95, 1.05, 1],
+                                rotate: -12, // Maintain rotation
+                                transition: { duration: 0.5, ease: "easeInOut", times: [0, 0.3, 0.6, 0.8, 1] }
+                            });
+
+                            // Create multiple pops for a burst effect
+                            const newPops = Array.from({ length: 5 }).map((_, i) => ({
+                                id: Math.random().toString(36),
+                                x: (Math.random() - 0.5) * 200, // Increased spread X
+                                y: -60 - Math.random() * 150, // Increased Upward spread
+                                rotate: Math.random() * 360,
+                                scale: 0.5 + Math.random() * 0.5,
+                                color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+                                icon: ['favorite', 'star', 'celebration', 'auto_awesome'][Math.floor(Math.random() * 4)]
+                            }));
+
+                            // Add new pops but limit total count to prevent lag
+                            setCelebrationPops(prev => [...prev.slice(-40), ...newPops]);
+                        }}
+                    >
+                        <div className="bg-white p-3 rounded-full shadow-lg border-2 border-pink-100 select-none hover:shadow-xl transition-shadow relative">
                             <span className="material-symbols-outlined text-primary-pink text-3xl">celebration</span>
+
+                            {/* Pops originating from this specific emoji */}
+                            {celebrationPops.map(pop => (
+                                <motion.div
+                                    key={pop.id}
+                                    initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
+                                    animate={{
+                                        scale: pop.scale,
+                                        x: pop.x,
+                                        y: pop.y,
+                                        opacity: 0,
+                                        rotate: pop.rotate
+                                    }}
+                                    transition={{ duration: 0.8, ease: "easeOut" }}
+                                    onAnimationComplete={() => setCelebrationPops(prev => prev.filter(h => h.id !== pop.id))}
+                                    className="absolute left-1/2 top-1/2 pointer-events-none"
+                                >
+                                    <span
+                                        className="material-symbols-outlined text-xl"
+                                        style={{ color: pop.color, marginLeft: '-0.5em', marginTop: '-0.5em', display: 'block' }}
+                                    >
+                                        {pop.icon}
+                                    </span>
+                                </motion.div>
+                            ))}
                         </div>
                     </motion.div>
 
                     <motion.div
                         initial={{ scale: 0, rotate: 30, opacity: 0 }}
-                        animate={{ scale: 1, rotate: 6, opacity: 1 }}
-                        transition={{ type: "spring", bounce: 0.5, delay: 1 }}
-                        className="absolute -bottom-6 -right-2 md:-bottom-8 md:-right-6"
+                        animate={yesControls}
+                        className="absolute -bottom-2 -right-2 md:-bottom-2 md:-right-6 pointer-events-auto cursor-pointer"
+                        style={{ right: '0' }}
+                        onClick={() => {
+                            // Bounce animation
+                            yesControls.start({
+                                scale: [1, 1.2, 0.95, 1.05, 1],
+                                rotate: 6, // Maintain rotation
+                                transition: { duration: 0.5, ease: "easeInOut", times: [0, 0.3, 0.6, 0.8, 1] }
+                            });
+
+                            // Create pops for YES button (Purple 4-point stars)
+                            const newYesPops = Array.from({ length: 8 }).map((_, i) => ({
+                                id: Math.random().toString(36),
+                                x: (Math.random() - 0.5) * 180,
+                                y: -50 - Math.random() * 140,
+                                rotate: Math.random() * 360,
+                                scale: 0.4 + Math.random() * 0.6,
+                                color: ['#a855f7', '#d8b4fe', '#c084fc', '#e879f9', '#ffffff'][Math.floor(Math.random() * 5)],
+                                icon: 'star4'
+                            }));
+                            setYesPops(prev => [...prev.slice(-40), ...newYesPops]);
+                        }}
                     >
-                        <div className="bg-white px-4 py-2 rounded-full shadow-lg border-2 border-purple-100 flex items-center gap-2">
+                        <div className="bg-white px-4 py-2 rounded-full shadow-lg border-2 border-purple-100 flex items-center gap-2 select-none hover:shadow-xl transition-shadow relative">
                             <span className="material-symbols-outlined text-accent-purple text-xl">magic_button</span>
                             <span className="font-fredoka text-accent-purple text-xs font-bold tracking-widest uppercase">YES!</span>
+
+                            {/* Pops originating from YES button */}
+                            {yesPops.map(pop => (
+                                <motion.div
+                                    key={pop.id}
+                                    initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
+                                    animate={{
+                                        scale: pop.scale,
+                                        x: pop.x,
+                                        y: pop.y,
+                                        opacity: 0,
+                                        rotate: pop.rotate
+                                    }}
+                                    transition={{ duration: 0.8, ease: "easeOut" }}
+                                    onAnimationComplete={() => setYesPops(prev => prev.filter(h => h.id !== pop.id))}
+                                    className="absolute left-1/2 top-1/2 pointer-events-none"
+                                >
+                                    <svg
+                                        viewBox="0 0 24 24"
+                                        fill="currentColor"
+                                        className="w-6 h-6"
+                                        style={{ color: pop.color, marginLeft: '-12px', marginTop: '-12px' }}
+                                    >
+                                        <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />
+                                    </svg>
+                                </motion.div>
+                            ))}
                         </div>
                     </motion.div>
                 </motion.div>
@@ -300,8 +498,10 @@ const Celebration = forwardRef((props, ref) => {
                         ease: "easeOut",
                         delay: 0
                     }}
-                    className="relative w-full flex flex-col items-center justify-center"
+                    className="relative w-full flex flex-col items-center justify-center overflow-visible"
                 >
+
+
                     <motion.div
                         className="sticker-card rounded-[3rem] p-6 md:p-16 text-center relative overflow-hidden flex flex-col items-center w-full"
                         style={{ boxShadow }}
@@ -314,7 +514,7 @@ const Celebration = forwardRef((props, ref) => {
                                     whileTap={{ scale: 0.9 }}
                                     animate={{
                                         scale: isHolding ? 0.95 : 1,
-                                        rotate: heat > 30 ? [0, -5, 5, 0] : 0,
+                                        rotate: heat > 30 ? SHAKE_ANIMATION : 0,
                                     }}
                                     transition={{ type: "spring", stiffness: 400, damping: 10 }}
                                     onMouseDown={handlePress}
@@ -427,7 +627,8 @@ const Celebration = forwardRef((props, ref) => {
                         ))}
                     </div>
                 </motion.div>
-            </main >
+            </main>
+
 
             <motion.div
                 style={{ x: layer4X, y: layer4Y }}

@@ -25,8 +25,9 @@ const Signup = () => {
             return;
         }
 
-        if (password.length < 6) {
-            setError('Password must be at least 6 characters');
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        if (!passwordRegex.test(password)) {
+            setError('Password must be at least 8 characters and include uppercase, number, and special character');
             setLoading(false);
             return;
         }
@@ -84,6 +85,8 @@ const Signup = () => {
                             </label>
                             <input
                                 type="email"
+                                name="email"
+                                autocomplete="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -99,6 +102,8 @@ const Signup = () => {
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
+                                    name="password"
+                                    autocomplete="new-password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
@@ -124,6 +129,8 @@ const Signup = () => {
                             <div className="relative">
                                 <input
                                     type={showConfirmPassword ? "text" : "password"}
+                                    name="confirm-password"
+                                    autocomplete="new-password"
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     required

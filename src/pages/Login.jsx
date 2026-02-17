@@ -65,6 +65,8 @@ const Login = () => {
                             </label>
                             <input
                                 type="email"
+                                name="email"
+                                autocomplete="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -80,6 +82,8 @@ const Login = () => {
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
+                                    name="password"
+                                    autocomplete="current-password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
