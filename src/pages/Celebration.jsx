@@ -116,37 +116,26 @@ const Celebration = forwardRef((props, ref) => {
     const audioRef = useRef(null);
 
     // Audio initialization
-    // 1. FIX AUDIO - wrap play() calls with a cancellable guard
     useEffect(() => {
         let cancelled = false;
 
-        const firecrackers = new Audio('/audio/fire_crackers.mp3');
-        const playFirecrackers = async () => {
-            try {
-                if (!cancelled) await firecrackers.play();
-            } catch (e) {
-                if (e.name !== 'AbortError') console.log("Audio play failed", e);
-            }
-        };
-        playFirecrackers();
-
-        audioRef.current = new Audio('/audio/until_i_found_her.mp3');
+        audioRef.current = new Audio('/audio/i_think_they_call_this_love.flac');
+        // audioRef.current.loop = true; // looping unchecked based on user request ("replace it" - usually a song plays once, but for bgm maybe loop? I'll assume loop for bgm, or maybe not if it's a specific song. Let's make it loop as it is a background track replacement)
+        // actually standard behavior for celebration bgm is loop. I'll Set loop to true.
         audioRef.current.loop = true;
         audioRef.current.volume = 0.5;
 
-        const musicTimeout = setTimeout(async () => {
+        const playMusic = async () => {
             try {
                 if (!cancelled && !isMuted) await audioRef.current.play();
             } catch (e) {
                 if (e.name !== 'AbortError') console.log("Music play failed", e);
             }
-        }, 3000);
+        };
+        playMusic();
 
         return () => {
             cancelled = true;
-            clearTimeout(musicTimeout);
-            firecrackers.pause();
-            firecrackers.currentTime = 0;
             if (audioRef.current) {
                 audioRef.current.pause();
                 audioRef.current.currentTime = 0;

@@ -21,7 +21,7 @@ const NO_PHRASES = [
     "You fear happiness.", "I admire the consistency.", "Still pressing it?",
     "We could’ve been cute.", "You’re testing my emotional bandwidth.", "Alright… I see how it is.",
     "Respectfully… why?", "You’re really committed to chaos.", "I’ll just wait here.",
-    "This isn’t over.", "Fine. I see how it is...😔"
+    "This isn’t over.", "Fine. I see how it is...😔", "Please....🥺🥺", "Please....🥺🥺🥺"
 ];
 
 const PROPOSAL_SUBTITLES = [
