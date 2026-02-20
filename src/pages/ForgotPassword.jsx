@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -54,7 +54,7 @@ const ForgotPassword = () => {
                         >
                             Forgot Password? 🔐
                         </motion.h1>
-                        <p className="font-['Quicksand'] text-gray-600 font-semibold">We'll send you a reset link</p>
+                        <p className="font-['Quicksand'] text-gray-600 font-semibold">We{"'"}ll send you a reset link</p>
                     </div>
 
                     <form onSubmit={handleResetPassword} className="space-y-6">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
@@ -32,7 +32,7 @@ const Signup = () => {
             return;
         }
 
-        const { data, error: authError } = await supabase.auth.signUp({
+        const { error: authError } = await supabase.auth.signUp({
             email,
             password,
         });
@@ -86,7 +86,7 @@ const Signup = () => {
                             <input
                                 type="email"
                                 name="email"
-                                autocomplete="email"
+                                autoComplete="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -103,7 +103,7 @@ const Signup = () => {
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     name="password"
-                                    autocomplete="new-password"
+                                    autoComplete="new-password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
@@ -130,7 +130,7 @@ const Signup = () => {
                                 <input
                                     type={showConfirmPassword ? "text" : "password"}
                                     name="confirm-password"
-                                    autocomplete="new-password"
+                                    autoComplete="new-password"
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     required

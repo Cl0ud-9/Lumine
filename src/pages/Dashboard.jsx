@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +9,7 @@ import Toast from '../components/Toast';
 const Dashboard = () => {
     const [invites, setInvites] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadProgress, setLoadProgress] = useState(0);
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [showHelpModal, setShowHelpModal] = useState(false);
     const [recipientName, setRecipientName] = useState('');
@@ -20,10 +21,25 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const channelRef = useRef(null);
     const userIdRef = useRef(null);
+    const progressTimerRef = useRef(null);
 
     // Stable fetch function that doesn't cause re-subscriptions
     const fetchInvites = useCallback(async (showLoading = true) => {
-        if (showLoading) setLoading(true);
+        if (showLoading) {
+            setLoading(true);
+            setLoadProgress(0);
+            // Tick up steadily — capped at 90 — so there's always visible movement
+            clearInterval(progressTimerRef.current);
+            progressTimerRef.current = setInterval(() => {
+                setLoadProgress(prev => {
+                    if (prev >= 90) {
+                        clearInterval(progressTimerRef.current);
+                        return 90;
+                    }
+                    return prev + 8;
+                });
+            }, 150);
+        }
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
@@ -44,7 +60,12 @@ const Dashboard = () => {
         } else {
             setInvites(data || []);
         }
-        if (showLoading) setLoading(false);
+        if (showLoading) {
+            // Stop the ticker, snap to 100%, then let the dashboard appear
+            clearInterval(progressTimerRef.current);
+            setLoadProgress(100);
+            setTimeout(() => setLoading(false), 250);
+        }
     }, [navigate]);
 
     useEffect(() => {
@@ -87,6 +108,7 @@ const Dashboard = () => {
 
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            clearInterval(progressTimerRef.current);
             if (channelRef.current) {
                 supabase.removeChannel(channelRef.current);
             }
@@ -288,7 +310,6 @@ const Dashboard = () => {
 
     // Group invites by status
     const waitingInvites = invites.filter(i => !i.first_opened_at);
-    const pendingInvites = invites.filter(i => i.first_opened_at && !i.used);
     const yesInvites = invites.filter(i => i.used);
 
     if (loading) {
@@ -317,13 +338,11 @@ const Dashboard = () => {
                         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                             <motion.div
                                 className="h-full bg-gradient-to-r from-pink-400 via-purple-400 to-pink-400 rounded-full"
-                                initial={{ width: "0%" }}
-                                animate={{ width: "100%" }}
+                                initial={{ width: '0%' }}
+                                animate={{ width: `${loadProgress}%` }}
                                 transition={{
-                                    duration: 1.5,
-                                    ease: "easeInOut",
-                                    repeat: Infinity,
-                                    repeatType: "reverse"
+                                    duration: 0.15,
+                                    ease: "easeOut",
                                 }}
                             />
                         </div>
@@ -584,7 +603,7 @@ const Dashboard = () => {
                                     Breaking up with us? 💔
                                 </motion.h3>
                                 <p className="font-['Quicksand'] text-gray-500 font-semibold mb-8 leading-relaxed">
-                                    We'll miss you! All your love letters and links will be lost in space forever. Are you sure? 🚀
+                                    We{"'"}ll miss you! All your love letters and links will be lost in space forever. Are you sure? 🚀
                                 </p>
                                 <div className="flex gap-3">
                                     <motion.button
@@ -593,7 +612,7 @@ const Dashboard = () => {
                                         onClick={() => setDeleteAccountModal(false)}
                                         className="flex-1 py-3 rounded-2xl font-['Quicksand'] font-bold text-gray-600 bg-gray-100 border-2 border-transparent hover:bg-white hover:border-red-200 transition-all shadow-sm"
                                     >
-                                        I'll stay
+                                        I{"'"}ll stay
                                     </motion.button>
                                     <motion.button
                                         whileHover={{ scale: 1.05 }}
@@ -638,18 +657,18 @@ const Dashboard = () => {
                     )}
 
                     {/* Pending Section */}
-                    {pendingInvites.length > 0 && (
+                    {invites.filter(i => i.first_opened_at && !i.used).length > 0 && (
                         <div>
                             <div className="flex items-center gap-3 mb-5">
                                 <div className="h-1 w-12 bg-gradient-to-r from-yellow-400 to-transparent rounded-full"></div>
                                 <h2 className="font-['Fredoka'] text-2xl font-bold text-gray-700 flex items-center gap-2">
                                     <span className="material-symbols-outlined text-2xl text-yellow-600">visibility</span> <span>Pending</span>
-                                    <span className="text-sm font-normal bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full">{pendingInvites.length}</span>
+                                    <span className="text-sm font-normal bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full">{invites.filter(i => i.first_opened_at && !i.used).length}</span>
                                 </h2>
                                 <div className="flex-1 h-1 bg-gradient-to-r from-transparent to-yellow-200 rounded-full"></div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {pendingInvites.map((invite) => (
+                                {invites.filter(i => i.first_opened_at && !i.used).map((invite) => (
                                     <InviteCard
                                         key={invite.id}
                                         invite={invite}
@@ -713,7 +732,7 @@ const Dashboard = () => {
                         <div>
                             <h4 className="font-['Fredoka'] text-lg font-bold text-red-500 mb-1">Break up with us? 💔</h4>
                             <p className="font-['Quicksand'] text-sm text-red-400 font-semibold max-w-md">
-                                We get it, sometimes things just don't work out. This will delete your account and all data. No hard feelings! (But it's permanent!)
+                                We get it, sometimes things just don{"'"}t work out. This will delete your account and all data. No hard feelings! (But it{"'"}s permanent!)
                             </p>
                         </div>
                         <button
@@ -731,10 +750,9 @@ const Dashboard = () => {
 
 // Invite Card Component
 const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTime, calculateTimeToYes }) => {
-    const isWaiting = !invite.first_opened_at;
     const isPending = invite.first_opened_at && !invite.used;
     const isYes = invite.used;
-    const [showVisitDetails, setShowVisitDetails] = React.useState(false);
+    const [showVisitDetails, setShowVisitDetails] = useState(false);
 
     return (
         <motion.div
@@ -860,7 +878,7 @@ const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTi
                                     <div className="flex items-center gap-2 text-sm">
                                         <span className="material-symbols-outlined text-2xl text-gray-400">block</span>
                                         <span className="text-gray-700 font-semibold">
-                                            Clicked "No" <span className="text-pink-600 font-bold">{invite.no_clicks}</span> time{invite.no_clicks !== 1 ? 's' : ''}!
+                                            Clicked {"\""}No{"\""} <span className="text-pink-600 font-bold">{invite.no_clicks}</span> time{invite.no_clicks !== 1 ? 's' : ''}!
                                         </span>
                                         {invite.no_clicks > 10 && <span className="material-symbols-outlined text-lg text-yellow-500">sentiment_satisfied</span>}
                                         {invite.no_clicks > 20 && <span className="material-symbols-outlined text-lg text-yellow-600">sentiment_very_satisfied</span>}
@@ -872,7 +890,7 @@ const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTi
                             {invite.yes_timestamps && invite.yes_timestamps.length > 1 && (
                                 <div className="mt-4 pt-4 border-t border-gray-200">
                                     <div className="text-xs font-semibold text-pink-600 uppercase tracking-wide mb-2 flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-sm">favorite</span> "Yes" History
+                                        <span className="material-symbols-outlined text-sm">favorite</span> {"\""}Yes{"\""} History
                                     </div>
                                     <div className="custom-scrollbar-wrapper">
                                         <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
@@ -955,17 +973,6 @@ const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTi
     );
 };
 
-// Timeline Item Component
-const TimelineItem = ({ label, value, highlight, isRelative }) => (
-    <div>
-        <div className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1">{label}</div>
-        <div className={`text-sm font-semibold ${highlight ? 'text-pink-600' :
-            isRelative ? 'text-purple-600' :
-                'text-gray-700'
-            }`}>
-            {value}
-        </div>
-    </div>
-);
+// Unused TimelineItem removed
 
 export default Dashboard;

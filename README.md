@@ -1,11 +1,11 @@
-# 💝 Lumine - Digital Proposal Experience
+﻿# 💝 Lumine - Digital Proposal Experience
 
 An interactive, premium web application designed to create unforgettable "Will you be my Valentine?" moments. 
 
 Built with **React**, **Framer Motion**, and **Supabase**, Lumine combines playful animations with real-time tracking to help you pop the question in style.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-pink.svg)](https://opensource.org/licenses/MIT)
-[![React](https://img.shields.io/badge/React-18.0+-blue.svg)](https://reactjs.org/)
+[![React](https://img.shields.io/badge/React-18.2-blue.svg)](https://reactjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Backend-green.svg)](https://supabase.com/)
 
 ---
@@ -30,7 +30,9 @@ Lumine allows users to generate personalized proposal links that initiate a play
 - 🎨 **Premium Aesthetic** - Glassmorphism, pastel gradients, and "bubbly" animations.
 - 🔄 **Interactive Parallax** - Floating UI elements that react to mouse movement and tilt.
 - 🎵 **Music & Audio** - Automatic romantic background music with dedicated mute/unmute controls.
-- 🔐 **Secure Authentication** - User accounts managed via Supabase Auth.
+- 🖱️ **Custom Cursor** - A sparkly, animated custom cursor that enhances the immersive feel.
+- 🔐 **Secure Authentication** - User accounts managed via Supabase Auth, with email confirmation on signup.
+- 🗑️ **Account Management** - Users can permanently delete their account directly from the Dashboard.
 - 📱 **Fully Responsive** - Flawless experience on mobile and desktop.
 - 💨 **Fun & Playful** - Thematic "Delete" warnings and bouncy interactions.
 
@@ -47,17 +49,19 @@ Lumine allows users to generate personalized proposal links that initiate a play
 ## 📁 Project Structure
 
 ```text
-rom_site/
+Lumine/
 │
 ├── src/
 │   ├── components/              # Reusable UI components (Modals, Cursor, etc.)
 │   ├── pages/                   # Main pages (Dashboard, Proposal, Login)
-│   ├── api/                     # Supabase client and API logic
+│   ├── lib/                     # Supabase client & shared utilities
+│   ├── assets/                  # Images, audio, and cursor assets
 │   ├── email_templates/         # HTML templates for system emails
 │   └── index.css                # Global styles & Tailwind directives
 │
 ├── public/                      # Static assets
 ├── supabase_schema.sql          # Database schema definitions
+├── .env.example                 # Template for required environment variables
 ├── tailwind.config.js           # Tailwind CSS configuration
 ├── vite.config.ts               # Vite build configuration
 └── README.md
@@ -80,7 +84,7 @@ rom_site/
 ### 1️⃣ Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/lumine.git
+git clone https://github.com/Cl0ud-9/Lumine.git
 ```
 
 Then open it in your code editor.
@@ -97,12 +101,20 @@ npm install
 
 ### 3️⃣ Configure Environment Variables
 
-Create a `.env` file in the root directory and add your Supabase credentials:
+A `.env.example` file is already included in the project root. Just copy it and fill in your credentials:
+
+```bash
+cp .env.example .env
+```
+
+Then open `.env` and replace the placeholders with your actual Supabase credentials:
 
 ```env
-VITE_SUPABASE_URL=your_supabase_url_here
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+VITE_SUPABASE_URL=your_project_url_here
+VITE_SUPABASE_ANON_KEY=your_anon_key_here
 ```
+
+You can find both values in your [Supabase Dashboard](https://supabase.com/dashboard) → **Project Settings → API**.
 
 ---
 

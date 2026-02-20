@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import CustomCursor from '../components/CustomCursor';
@@ -43,7 +42,7 @@ const EmailConfirmation = () => {
                     </div>
 
                     <p className="font-['Quicksand'] text-gray-600 font-semibold mb-8 leading-relaxed">
-                        We've sent a confirmation link to your inbox. <br />
+                        We{"'"}ve sent a confirmation link to your inbox. <br />
                         Please click the link to activate your account and start creating romantic proposals!
                     </p>
 
@@ -58,7 +57,7 @@ const EmailConfirmation = () => {
                         </Link>
 
                         <p className="font-['Quicksand'] text-sm text-gray-500 font-medium">
-                            Didn't receive it? Check your spam folder.<br />
+                            Didn{"'"}t receive it? Check your spam folder.<br />
                             (Sometimes love letters get lost there!)
                         </p>
                     </div>

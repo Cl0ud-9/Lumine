@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { supabase } from './lib/supabaseClient';
@@ -71,7 +71,7 @@ const ProposalFlow = () => {
         <div className="min-h-screen font-inter selection:bg-pink-200 selection:text-pink-900 overflow-hidden relative cursor-none">
             <CustomCursor />
             <MagicalBackground />
-            <div className="relative z-10 w-full" key={currentStep}>
+            <div className="relative z-10 w-full">
                 {showCircle && <CircularTransition isVisible={showCircle} isMobile={isMobile} />}
 
                 <AnimatePresence mode='wait'>

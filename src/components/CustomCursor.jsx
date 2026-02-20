@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue } from 'framer-motion';
 import gsap from 'gsap';
 import heartCursor from '../assets/cursors/heart-cursor.png';
@@ -46,7 +46,6 @@ const CustomCursor = () => {
             });
 
 
-            const pos = { x: 0, y: 0 }; // Local position storage for the line
 
             gsap.to(line, {
                 duration: 1000,
@@ -55,8 +54,7 @@ const CustomCursor = () => {
                 repeat: -1,
                 modifiers: {
                     x: function () {
-                        const posX = pos.x; // Use local var instead of getProperty for perf? 
-                        // Actually, snippet uses getProperty. Let's stick to snippet for reliability.
+                        // Use getProperty for reliability (posX local var not needed)
                         let currentX = gsap.getProperty(line, "x");
                         let leaderX = (i === 0) ? pointer.x : gsap.getProperty(lines[i - 1], "x");
 
@@ -107,7 +105,7 @@ const CustomCursor = () => {
                 } else {
                     setIsHovering(false);
                 }
-            } catch (err) {
+            } catch (_err) { // eslint-disable-line no-unused-vars
                 setIsHovering(false);
             }
         };
@@ -120,11 +118,7 @@ const CustomCursor = () => {
             // Clean previous
             while (svgRef.current.firstChild) svgRef.current.removeChild(svgRef.current.firstChild);
 
-            let leader = pointer; // Initial leader (not used in loop logic really, just placeholders)
-            // The snippet loop logic is slightly different:
-            // leader = createLine(leader, i) where `leader` becomes the previous line.
-            // But in the modifier, it references `leader`.
-            // My implementation above: `leaderX` logic inside modifier handles the chaining.
+            // Lines chain to each other via the modifier logic inside createLine.
 
             for (let i = 0; i < total; i++) {
                 lines.push(createLine(null, i)); // null leader, logic handled in modifier
@@ -132,15 +126,16 @@ const CustomCursor = () => {
         }
 
 
+        const svgEl = svgRef.current; // Capture before async cleanup
         return () => {
             window.removeEventListener('resize', checkTouch);
             window.removeEventListener('mousemove', onMouseMove);
-            gsap.globalTimeline.clear(); // Clear all GSAP animations
-            if (svgRef.current) {
-                while (svgRef.current.firstChild) svgRef.current.removeChild(svgRef.current.firstChild);
+            gsap.globalTimeline.clear();
+            if (svgEl) {
+                while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
             }
         };
-    }, []); // Empty dep array once
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (isTouch) return null;
 
