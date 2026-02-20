@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
@@ -17,7 +17,7 @@ const Login = () => {
         setLoading(true);
         setError('');
 
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
+        const { error: authError } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
@@ -66,7 +66,7 @@ const Login = () => {
                             <input
                                 type="email"
                                 name="email"
-                                autocomplete="email"
+                                autoComplete="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -83,7 +83,7 @@ const Login = () => {
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     name="password"
-                                    autocomplete="current-password"
+                                    autoComplete="current-password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
@@ -127,7 +127,7 @@ const Login = () => {
 
                     <div className="mt-6 text-center">
                         <p className="font-['Quicksand'] text-gray-600 font-semibold">
-                            Don't have an account?{' '}
+                            Don{"'"}t have an account?{' '}
                             <Link to="/auth/register" className="text-[#ff4d7d] font-bold hover:underline">
                                 Sign up
                             </Link>

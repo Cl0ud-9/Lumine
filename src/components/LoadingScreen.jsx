@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect } from 'react';
+import { motion } from 'framer-motion';
 
 const LoadingScreen = ({ onComplete }) => {
     useEffect(() => {
@@ -15,7 +15,7 @@ const LoadingScreen = ({ onComplete }) => {
             className="fixed inset-0 z-50 bg-background-light dark:bg-background-dark font-jakarta overflow-hidden flex flex-col items-center justify-center min-h-screen"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 1, transition: { duration: 0 } }}
+            exit={{ opacity: 0, transition: { duration: 0.3 } }}
         >
             {/* Animated Background */}
             <div className="absolute inset-0 z-0 bg-animated-pastel">
@@ -36,7 +36,7 @@ const LoadingScreen = ({ onComplete }) => {
                     </div>
                     <div className="w-64 md:w-80">
                         <div className="relative h-2.5 w-full bg-blush-pink rounded-full overflow-hidden">
-                            <div className="progress-fill absolute top-0 left-0 h-full rounded-full"></div>
+                            <div className="progress-fill absolute top-0 left-0 h-full rounded-full" style={{ willChange: 'width' }}></div>
                         </div>
                         <p className="text-loading-primary/60 text-sm font-medium mt-6 text-center tracking-[0.2em] uppercase">Preparing your heart...</p>
                     </div>

@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const HelpModal = ({ show, onClose }) => {
@@ -54,7 +53,7 @@ const HelpModal = ({ show, onClose }) => {
                                 <div>
                                     <h3 className="font-['Fredoka'] text-lg sm:text-xl font-bold text-gray-800 mb-1 group-hover:text-pink-500 transition-colors">Create a Link</h3>
                                     <p className="font-['Quicksand'] text-sm sm:text-base text-gray-600 font-semibold leading-relaxed">
-                                        Tap <span className="text-pink-500 font-bold bg-pink-50 px-2 py-0.5 rounded-lg border border-pink-100">Create New Proposal URL</span>, enter your special person's name, and get a unique, magical link.
+                                        Tap <span className="text-pink-500 font-bold bg-pink-50 px-2 py-0.5 rounded-lg border border-pink-100">Create New Proposal URL</span>, enter your special person{"'"}s name, and get a unique, magical link.
                                     </p>
                                 </div>
                             </div>

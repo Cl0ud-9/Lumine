@@ -1,6 +1,6 @@
-import React, { useState, useEffect, forwardRef, useRef } from 'react';
-import { motion, useMotionValue, useSpring, useTransform, AnimatePresence, useAnimation } from 'framer-motion';
-import { useApp } from '../context/AppContext';
+import { useState, useEffect, forwardRef, useRef } from 'react';
+import { motion, useMotionValue, useSpring, useTransform, useAnimation } from 'framer-motion';
+
 
 const CELEBRATION_PHRASES = [
     { title: "You just made \nmy day.", subtitle: "This is going to be unforgettable." },
@@ -16,11 +16,11 @@ const CONFETTI_COLORS = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', 
 const SHAKE_ANIMATION = [0, -5, 5, 0];
 
 const Celebration = forwardRef((props, ref) => {
-    const { boyfriendName } = useApp();
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const controls = useAnimation(); // Animation controls for the emoji
     const yesControls = useAnimation(); // Animation controls for the YES button
+    const musicControls = useAnimation(); // Animation controls for the music button
 
     const mouseX = useMotionValue(0.5);
     const mouseY = useMotionValue(0.5);
@@ -46,7 +46,14 @@ const Celebration = forwardRef((props, ref) => {
             opacity: 1,
             transition: { type: "spring", bounce: 0.5, delay: 1 }
         });
-    }, [controls, yesControls]);
+
+        musicControls.start({
+            scale: 1,
+            rotate: 20,
+            opacity: 1,
+            transition: { type: "spring", bounce: 0.5, delay: 1.2 }
+        });
+    }, [controls, yesControls, musicControls]);
 
     // ... existing code ...
 
@@ -120,9 +127,6 @@ const Celebration = forwardRef((props, ref) => {
         let cancelled = false;
 
         audioRef.current = new Audio('/audio/i_think_they_call_this_love.flac');
-        // audioRef.current.loop = true; // looping unchecked based on user request ("replace it" - usually a song plays once, but for bgm maybe loop? I'll assume loop for bgm, or maybe not if it's a specific song. Let's make it loop as it is a background track replacement)
-        // actually standard behavior for celebration bgm is loop. I'll Set loop to true.
-        audioRef.current.loop = true;
         audioRef.current.volume = 0.5;
 
         const playMusic = async () => {
@@ -193,7 +197,7 @@ const Celebration = forwardRef((props, ref) => {
     const [yesPops, setYesPops] = useState([]); // YES button pops
     const [heat, setHeat] = useState(0);
     const [isHolding, setIsHolding] = useState(false);
-    const holdIntervalRef = React.useRef(null);
+    const holdIntervalRef = useRef(null);
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -340,13 +344,17 @@ const Celebration = forwardRef((props, ref) => {
                 >
                     <motion.div
                         initial={{ scale: 0, rotate: 30, opacity: 0 }}
-                        animate={{ scale: 1, rotate: 20, opacity: 1 }}
-                        transition={{ delay: 1, duration: 0.5 }}
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => setIsMuted(!isMuted)}
+                        animate={musicControls}
+                        onClick={() => {
+                            setIsMuted(!isMuted);
+                            musicControls.start({
+                                scale: [1, 1.2, 0.95, 1.05, 1],
+                                rotate: 20,
+                                transition: { duration: 0.5, ease: "easeInOut", times: [0, 0.3, 0.6, 0.8, 1] }
+                            });
+                        }}
                         className="absolute -top-4 -right-2 md:-top-7 md:right-1 pointer-events-auto cursor-pointer z-50"
-                        style={{ right: '0' }}
+                        style={{ right: '0', willChange: "transform" }}
                     >
                         <div className="bg-white p-3 rounded-full shadow-lg border-2 border-pink-100 text-pink-500 hover:shadow-xl transition-all">
                             <span className="material-symbols-outlined text-xl md:text-2xl">
@@ -359,7 +367,7 @@ const Celebration = forwardRef((props, ref) => {
                         initial={{ scale: 0, rotate: -30, opacity: 0 }}
                         animate={controls}
                         className="absolute -top-4 left-0 md:-top-6 md:-left-2 pointer-events-auto cursor-pointer"
-                        onClick={(e) => {
+                        onClick={() => {
                             // Bounce animation
                             controls.start({
                                 scale: [1, 1.2, 0.95, 1.05, 1],
@@ -368,7 +376,7 @@ const Celebration = forwardRef((props, ref) => {
                             });
 
                             // Create multiple pops for a burst effect
-                            const newPops = Array.from({ length: 5 }).map((_, i) => ({
+                            const newPops = Array.from({ length: 5 }).map(() => ({
                                 id: Math.random().toString(36),
                                 x: (Math.random() - 0.5) * 200, // Increased spread X
                                 y: -60 - Math.random() * 150, // Increased Upward spread
@@ -426,7 +434,7 @@ const Celebration = forwardRef((props, ref) => {
                             });
 
                             // Create pops for YES button (Purple 4-point stars)
-                            const newYesPops = Array.from({ length: 8 }).map((_, i) => ({
+                            const newYesPops = Array.from({ length: 8 }).map(() => ({
                                 id: Math.random().toString(36),
                                 x: (Math.random() - 0.5) * 180,
                                 y: -50 - Math.random() * 140,

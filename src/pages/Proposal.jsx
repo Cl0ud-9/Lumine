@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabaseClient';
 import { motion, LayoutGroup, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
-import CustomCursor from '../components/CustomCursor';
+
 
 const NO_PHRASES = [
     "No…?", "Nope.", "Oh, come on.", "Really?", "You sure about that?",
@@ -49,8 +49,8 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
 
-    const [isInvalid, setIsInvalid] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+    // Initialize immediately so we never flash the valentine page for invalid/missing tokens
+    const [isInvalid, setIsInvalid] = useState(() => !token);
 
     const noRef = useRef(null);
     const cardRef = useRef(null);
@@ -61,10 +61,6 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
     // Track page visit analytics
     useEffect(() => {
         if (!token || visitTracked.current) {
-            if (!token) {
-                setIsInvalid(true);
-                setIsLoading(false);
-            }
             return;
         }
 
@@ -77,18 +73,15 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
 
                 if (checkError || !exists) {
                     setIsInvalid(true);
-                    setIsLoading(false);
                     return;
                 }
 
                 // 2. Track visit securely
                 await supabase.rpc('track_visit', { url_token: token });
-                setIsLoading(false);
 
             } catch (error) {
                 console.error('Error tracking visit:', error);
                 setIsInvalid(true); // Treat error as invalid for safety
-                setIsLoading(false);
             }
         };
 
@@ -147,13 +140,12 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         return [...hearts, ...sparkles];
     });
 
-    const [showShockwave, setShowShockwave] = useState(false);
+
 
     const handleYes = useCallback(async () => {
         if (isSending) return;
 
         setIsSending(true);
-        setShowShockwave(true);
 
         // Silently save to database in background via secure RPC
         if (token) {
@@ -385,18 +377,37 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                 {/* Content Switcher */}
                 {isInvalid ? (
                     <div className="min-h-screen flex items-center justify-center cursor-none relative z-10 p-4">
-                        <CustomCursor />
+
                         <div className="sticker-card rounded-[3rem] p-8 md:p-12 text-center max-w-md w-full relative z-10 shadow-2xl">
                             <div className="mb-6 relative inline-block">
-                                <span className="material-symbols-outlined text-8xl text-gray-300">broken_image</span>
-                                <span className="material-symbols-outlined text-4xl text-pink-400 absolute -bottom-2 -right-2 animate-bounce">heart_broken</span>
+                                <motion.span
+                                    animate={{ y: [0, -2, 0] }}
+                                    transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
+                                    style={{ willChange: "transform", display: "inline-block" }}
+                                    className="material-symbols-outlined text-8xl text-gray-300"
+                                >
+                                    broken_image
+                                </motion.span>
+                                <span
+                                    style={{ transform: "rotate(20deg)", display: "inline-block" }}
+                                    className="material-symbols-outlined text-4xl text-pink-400 absolute -bottom-0 -right-2"
+                                >
+                                    heart_broken
+                                </span>
                             </div>
-                            <h1 className="font-['Fredoka'] text-3xl md:text-4xl font-bold text-gray-700 mb-3">
+                            <motion.h1
+                                animate={{ y: [0, -5, 0] }}
+                                transition={{ repeat: Infinity, duration: 4, ease: "easeInOut", delay: 0.2 }}
+                                style={{ transform: "translateZ(40px)", willChange: "transform" }}
+                                className="font-['Fredoka'] text-3xl md:text-4xl font-bold text-gray-700 mb-3"
+                            >
                                 Oops! Invalid Link
-                            </h1>
-                            <p className="font-['Quicksand'] text-gray-500 font-semibold text-lg mb-8 leading-relaxed">
+                            </motion.h1>
+                            <motion.p
+                                className="font-['Quicksand'] text-gray-500 font-semibold text-lg mb-8 leading-relaxed"
+                            >
                                 This proposal URL seems to be broken, expired, or deleted.
-                            </p>
+                            </motion.p>
                         </div>
                         {/* Background decoration for Invalid State */}
                         <div className="fixed inset-0 pointer-events-none z-0">
@@ -590,7 +601,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                 transition={{ delay: 1.5, duration: 1 }}
                                 className="mt-8 text-pink-400/70 font-['Quicksand'] text-sm font-semibold italic"
                             >
-                                Hint: The "No" button is a bit shy... 😉
+                                Hint: The {"\""}No{"\""} button is a bit shy... 😉
                             </motion.p>
 
 
@@ -611,7 +622,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                 </div>
             </motion.div >
 
-// Removed shockwave overlay completely
+            {/* Removed shockwave overlay completely */}
         </div>
     );
 });
