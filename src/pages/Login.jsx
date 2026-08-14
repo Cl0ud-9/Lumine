@@ -3,8 +3,11 @@ import { supabase } from '../lib/supabaseClient';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import CustomCursor from '../components/CustomCursor';
+import FloatingLabelInput from '../components/FloatingLabelInput';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 const Login = () => {
+    usePageTitle('Login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -49,7 +52,7 @@ const Login = () => {
                     <div className="text-center mb-8">
                         <motion.h1
                             className="font-['Fredoka'] text-4xl font-bold text-[#ff4d7d] mb-2"
-                            style={{ willChange: "transform", transform: "translateZ(30px)" }}
+                            style={{ willChange: "transform", translateZ: 30 }}
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                         >
@@ -60,46 +63,40 @@ const Login = () => {
 
                     <form onSubmit={handleLogin} className="space-y-6">
                         <div>
-                            <label className="font-['Quicksand'] block text-sm font-semibold text-gray-700 mb-2">
-                                Email
-                            </label>
-                            <input
+                            <FloatingLabelInput
+                                label="Email"
                                 type="email"
                                 name="email"
                                 autoComplete="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
-                                className="font-['Quicksand'] w-full px-4 py-3 rounded-xl border-2 border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition"
-                                placeholder="your@email.com"
                             />
                         </div>
 
                         <div>
-                            <label className="font-['Quicksand'] block text-sm font-semibold text-gray-700 mb-2">
-                                Password
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    name="password"
-                                    autoComplete="current-password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    className="font-['Quicksand'] w-full px-4 py-3 rounded-xl border-2 border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition pr-10"
-                                    placeholder="••••••••"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none ${showPassword ? 'text-pink-500' : 'text-gray-400 md:hover:text-pink-500'}`}
-                                >
-                                    <span className="material-symbols-outlined text-lg">
-                                        {showPassword ? 'favorite' : 'favorite_border'}
-                                    </span>
-                                </button>
-                            </div>
+                            <FloatingLabelInput
+                                label="Password"
+                                type={showPassword ? "text" : "password"}
+                                name="password"
+                                autoComplete="current-password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                hasEndAdornment
+                                endAdornment={
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                        className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none ${showPassword ? 'text-pink-500' : 'text-gray-400 md:hover:text-pink-500'}`}
+                                    >
+                                        <span className="material-symbols-outlined text-lg" aria-hidden="true">
+                                            {showPassword ? 'favorite' : 'favorite_border'}
+                                        </span>
+                                    </button>
+                                }
+                            />
                             <div className="text-right mt-2">
                                 <Link to="/auth/forgot-password" className="font-['Quicksand'] text-sm text-[#ff4d7d] font-semibold hover:underline">
                                     Forgot Password?

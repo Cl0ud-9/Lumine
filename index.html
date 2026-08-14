@@ -6,13 +6,38 @@
   <link rel="icon" type="image/png" href="/favicon.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lumine</title>
+
+  <!-- Establish the connection to Google Fonts' asset host early, in parallel with the
+       document parse, instead of waiting for the <link rel=stylesheet> below to be
+       discovered before the DNS/TLS handshake even starts. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <!-- Single combined request for every font family actually used in the app (Inter,
+       Fredoka, Pacifico, Plus Jakarta Sans, Quicksand, Material Symbols). Previously this
+       was 4 separate requests, one of them (Material Icons) for an icon font nothing in
+       the codebase references, plus a render-blocking @import of two more unused families
+       (Playfair Display, Satisfy) from index.css. The Material Symbols axis is also pinned
+       to the exact values the app uses (opsz 48, weight 400, grade 0, fill 0..1) instead of
+       requesting the full variable-font range on every axis.
+
+       Loaded via the media="print" -> onload swap-to-"all" trick: a <link rel=stylesheet>
+       with no media restriction blocks first paint until it's fetched and parsed, which
+       Lighthouse measured as ~600ms+ of the initial render being held up on this one request.
+       Declaring it as print-only makes the browser fetch it without blocking screen
+       rendering, then the onload handler applies it once it's actually ready. display=swap
+       in the URL already means the fonts themselves won't cause invisible text while
+       loading - this just stops the CSS fetch itself from blocking paint. -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&family=Fredoka:wght@400;600;700&family=Pacifico&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Quicksand:wght@500;700&display=swap"
-    rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
-    rel="stylesheet" />
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Fredoka:wght@400;600;700&family=Pacifico&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Quicksand:wght@500;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0..1,0&display=swap"
+    rel="stylesheet"
+    media="print"
+    onload="this.media='all'" />
+  <noscript>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Fredoka:wght@400;600;700&family=Pacifico&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Quicksand:wght@500;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0..1,0&display=swap"
+      rel="stylesheet" />
+  </noscript>
 </head>
 
 <body>

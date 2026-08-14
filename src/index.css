@@ -1,4 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Satisfy&display=swap');
+/* Font loading lives in index.html as <link rel="preconnect"/"stylesheet"> tags, not here -
+   an @import in CSS is render-blocking and can't be discovered/preconnected as early as a
+   <link> in <head>. Inter is requested there; Playfair Display and Satisfy were previously
+   imported here but unused anywhere in the app, so they were pure wasted bytes/requests. */
 
 @tailwind base;
 @tailwind components;
@@ -303,7 +306,7 @@ textarea {
   box-shadow: 0 4px 0 #c92a4e;
 }
 
-/* Custom Scrollbar — hide native scrollbar completely to prevent cursor flicker.
+/* Custom Scrollbar - hide native scrollbar completely to prevent cursor flicker.
    Scroll still works via mousewheel / trackpad / touch. */
 .custom-scrollbar {
   scrollbar-width: none;
@@ -326,7 +329,7 @@ textarea {
   mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
 }
 
-/* Global page scrollbar — keep styled, hidden scrollbar buttons */
+/* Global page scrollbar - keep styled, hidden scrollbar buttons */
 html {
   scrollbar-width: thin;
   scrollbar-color: #ffb7ce transparent;
@@ -355,4 +358,20 @@ html {
 
 ::-webkit-scrollbar-button {
   display: none;
+}
+
+/* Respect OS-level "reduce motion" for the decorative CSS keyframe animations.
+   Framer Motion animations are gated per-component via a JS prefersReducedMotion
+   check; these plain-CSS ones (drift/shimmer/float/heartbeat) had no such gate. */
+@media (prefers-reduced-motion: reduce) {
+
+  .floating-orb,
+  .bg-animated-pastel,
+  .floating-heart,
+  .animate-heartbeat,
+  .bubbly-yes,
+  .bubbly-copy,
+  .bubbly-delete {
+    animation: none !important;
+  }
 }

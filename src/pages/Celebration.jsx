@@ -1,5 +1,9 @@
 import { useState, useEffect, forwardRef, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, useAnimation } from 'framer-motion';
+import { useFloatingElements } from '../hooks/useFloatingElements';
+import FloatingParticles from '../components/FloatingParticles';
+import { logger } from '../lib/logger';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 
 const CELEBRATION_PHRASES = [
@@ -11,11 +15,11 @@ const CELEBRATION_PHRASES = [
     { title: "Official: \nWe are a thing!", subtitle: "Warning: Excessive happiness ahead." }
 ];
 
-const SPARKLE_COLORS = ['#d8b4fe', '#f9a8d4', '#ffffff'];
 const CONFETTI_COLORS = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
 const SHAKE_ANIMATION = [0, -5, 5, 0];
 
 const Celebration = forwardRef((props, ref) => {
+    usePageTitle('Yay!');
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const controls = useAnimation(); // Animation controls for the emoji
@@ -70,53 +74,18 @@ const Celebration = forwardRef((props, ref) => {
     const rotateX = useTransform(smoothedY, [0, 1], [isMobile ? 0 : 4, isMobile ? 0 : -4]);
     const rotateY = useTransform(smoothedX, [0, 1], [isMobile ? 0 : -4, isMobile ? 0 : 4]);
 
-    const shadowX = useTransform(smoothedX, [0, 1], [20, -20]);
-    const shadowY = useTransform(smoothedY, [0, 1], [40, 0]);
-    const boxShadow = useTransform(
-        [shadowX, shadowY],
-        ([x, y]) => `${x}px ${y}px 50px rgba(0, 0, 0, 0.1), inset 0 0 20px rgba(255, 255, 255, 0.5)`
-    );
-
     const layer4X = useTransform(smoothedX, [0, 1], [40 * intensity, -40 * intensity]);
     const layer4Y = useTransform(smoothedY, [0, 1], [40 * intensity, -40 * intensity]);
 
-    const [elements] = useState(() => {
-        const hearts = Array.from({ length: 15 }).map((_, i) => ({
-            id: `heart-${i}`,
-            type: 'heart',
-            left: Math.random() * 100,
-            delay: Math.random() * 5,
-            duration: 15 + Math.random() * 10,
-            size: 20 + Math.random() * 30,
-            rotate: Math.random() * 30 - 15,
-            color: '#ec4899'
-        }));
-
-        const sparkles = Array.from({ length: 12 }).map((_, i) => ({
-            id: `sparkle-${i}`,
-            type: 'sparkle',
-            left: Math.random() * 100,
-            delay: Math.random() * 5,
-            duration: 4 + Math.random() * 6,
-            size: 15 + Math.random() * 20,
-            rotate: Math.random() * 180,
-            color: SPARKLE_COLORS[Math.floor(Math.random() * SPARKLE_COLORS.length)]
-        }));
-
-        const confetti = Array.from({ length: 30 }).map((_, i) => ({
-            id: `confetti-${i}`,
-            type: 'confetti',
-            left: Math.random() * 100,
-            top: -10 - Math.random() * 20,
-            delay: Math.random() * 2,
-            duration: 3 + Math.random() * 4,
-            size: 8 + Math.random() * 8,
-            rotate: Math.random() * 360,
-            color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
-            xDrift: Math.random() * 100 - 50
-        }));
-
-        return [...hearts, ...sparkles, ...confetti];
+    // Trimmed from 15/12/30 (57 concurrently-animating elements) to 8/6/16 (30) - the ambient
+    // field still reads as "full" but roughly halves the number of infinite Framer Motion loops
+    // running at once, which is what was making the click response feel laggy.
+    const elements = useFloatingElements({
+        heartCount: 8,
+        sparkleCount: 6,
+        confettiCount: 16,
+        heartColor: '#ec4899',
+        confettiColors: CONFETTI_COLORS,
     });
 
     const [isMuted, setIsMuted] = useState(false);
@@ -126,14 +95,18 @@ const Celebration = forwardRef((props, ref) => {
     useEffect(() => {
         let cancelled = false;
 
-        audioRef.current = new Audio('/audio/i_think_they_call_this_love.flac');
+        // Compressed from the original lossless FLAC (5.7MB -> ~1MB, same ~53s clip) - this is
+        // background music, so the lossless bytes weren't buying anything perceptible while
+        // costing every visitor a multi-megabyte download at the exact moment the celebration
+        // animations kick in.
+        audioRef.current = new Audio('/audio/i_think_they_call_this_love.mp3');
         audioRef.current.volume = 0.5;
 
         const playMusic = async () => {
             try {
                 if (!cancelled && !isMuted) await audioRef.current.play();
             } catch (e) {
-                if (e.name !== 'AbortError') console.log("Music play failed", e);
+                if (e.name !== 'AbortError') logger.error("Music play failed", e);
             }
         };
         playMusic();
@@ -152,14 +125,14 @@ const Celebration = forwardRef((props, ref) => {
     useEffect(() => {
         if (!hasInitializedAudio.current) {
             hasInitializedAudio.current = true;
-            return; // Skip on first mount — audio setup is handled in the other useEffect
+            return; // Skip on first mount - audio setup is handled in the other useEffect
         }
         if (audioRef.current) {
             if (isMuted) {
                 audioRef.current.pause();
             } else {
                 audioRef.current.play().catch(e => {
-                    if (e.name !== 'AbortError') console.log("Resume failed", e);
+                    if (e.name !== 'AbortError') logger.error("Resume failed", e);
                 });
             }
         }
@@ -264,60 +237,13 @@ const Celebration = forwardRef((props, ref) => {
                 style={{ x: layer1X, y: layer1Y }}
                 className="fixed inset-[-5%] pointer-events-none z-0"
             >
-                <div className="floating-orb absolute top-[-5%] left-[-5%] w-[30rem] h-[30rem] bg-pink-300 opacity-20 blur-[100px]" />
-                <div className="floating-orb absolute bottom-0 right-0 w-[40rem] h-[40rem] bg-purple-200 opacity-20 blur-[120px]" style={{ animationDelay: '-5s' }} />
+                {/* Note: .floating-orb's own CSS blur(60px) wins the cascade over any
+                    blur-[…] utility placed on the same element (equal specificity, later
+                    source order), so those utilities were previously silent no-ops. */}
+                <div className="floating-orb absolute top-[-5%] left-[-5%] w-[30rem] h-[30rem] bg-pink-300 opacity-20" />
+                <div className="floating-orb absolute bottom-0 right-0 w-[40rem] h-[40rem] bg-purple-200 opacity-20" style={{ animationDelay: '-5s' }} />
 
-                {elements.map((el) => (
-                    <motion.div
-                        key={el.id}
-                        initial={el.type === 'confetti'
-                            ? { y: -50, opacity: 1, rotate: 0 }
-                            : { y: "110vh", opacity: 0 }
-                        }
-                        animate={el.type === 'confetti'
-                            ? {
-                                y: "110vh",
-                                opacity: [1, 1, 0],
-                                rotate: [0, 360, 720],
-                                x: [0, el.xDrift, 0]
-                            }
-                            : {
-                                y: "-10vh",
-                                opacity: [0, el.type === 'heart' ? 0.7 : 0.8, 0]
-                            }
-                        }
-                        transition={
-                            prefersReducedMotion
-                                ? { duration: 0 }
-                                : {
-                                    duration: el.duration,
-                                    repeat: Infinity,
-                                    delay: el.delay,
-                                    ease: "linear"
-                                }
-                        }
-                        style={{
-                            left: `${el.left}%`,
-                            position: 'absolute',
-                            width: el.size,
-                            height: el.size,
-                            backgroundColor: el.type === 'confetti' ? el.color : undefined,
-                            borderRadius: el.type === 'confetti' ? (Math.random() > 0.5 ? '50%' : '2px') : undefined
-                        }}
-                    >
-                        {el.type === 'heart' && (
-                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full opacity-60 drop-shadow-sm" style={{ transform: `rotate(${el.rotate}deg)`, color: el.color }}>
-                                <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.245 15.245 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
-                            </svg>
-                        )}
-                        {el.type === 'sparkle' && (
-                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full animate-pulse drop-shadow-sm" style={{ transform: `rotate(${el.rotate}deg)`, color: el.color }}>
-                                <path d="M12 2L14.39 9.61L22 12L14.39 14.39L12 22L9.61 14.39L2 12L9.61 9.61L12 2Z" />
-                            </svg>
-                        )}
-                        {/* Confetti uses CSS background color, so no SVG needed */}
-                    </motion.div>
-                ))}
+                <FloatingParticles elements={elements} prefersReducedMotion={prefersReducedMotion} heartVariant="filled" />
             </motion.div>
 
             {/* LAYER 2: Mid Floating Elements */}
@@ -499,9 +425,12 @@ const Celebration = forwardRef((props, ref) => {
                 >
 
 
+                    {/* box-shadow now comes from the static .sticker-card CSS instead of being
+                        recomputed from mouse position every frame - box-shadow isn't a
+                        compositor-only property, so animating it forced a full repaint on
+                        every pointer move and was a major contributor to the click-time jank. */}
                     <motion.div
                         className="sticker-card rounded-[3rem] p-6 md:p-16 text-center relative overflow-hidden flex flex-col items-center w-full"
-                        style={{ boxShadow }}
                     >
 
                         <div className="mb-6 lg:mb-4 flex justify-center relative select-none">
@@ -520,7 +449,7 @@ const Celebration = forwardRef((props, ref) => {
                                     onTouchStart={handlePress}
                                     onTouchEnd={handleRelease}
                                     className="cursor-pointer relative z-20"
-                                    style={{ transform: "translateZ(50px)" }}
+                                    style={{ translateZ: 50 }}
                                 >
                                     <motion.div
                                         animate={{
@@ -558,7 +487,7 @@ const Celebration = forwardRef((props, ref) => {
                                 animate={{ y: [0, -4, 0] }}
                                 transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                                 className="text-3xl md:text-6xl font-['Fredoka'] font-bold text-[#ff4d7d] leading-tight mb-6 tracking-tight whitespace-pre-line"
-                                style={{ willChange: "transform", fontWeight: 700, transform: "translateZ(40px)" }}
+                                style={{ willChange: "transform", fontWeight: 700, translateZ: 40 }}
                             >
                                 {phrase.title}
                             </motion.h1>
@@ -573,7 +502,7 @@ const Celebration = forwardRef((props, ref) => {
                                 animate={{ y: [0, -4, 0] }}
                                 transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut", delay: 0.6 }}
                                 className="text-xl md:text-3xl text-pink-500/80 font-['Pacifico'] italic"
-                                style={{ willChange: "transform", transform: "translateZ(30px)" }}
+                                style={{ willChange: "transform", translateZ: 30 }}
                             >
                                 {phrase.subtitle}
                             </motion.p>
@@ -584,7 +513,7 @@ const Celebration = forwardRef((props, ref) => {
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ delay: 0.7, duration: 0.5 }}
                             className="mt-16 flex justify-center gap-4"
-                            style={{ transform: "translateZ(15px)" }}
+                            style={{ translateZ: 15 }}
                         >
                             <div className="w-3 h-3 bg-pink-400 rounded-full animate-pulse" />
                             <div className="w-3 h-3 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
@@ -611,7 +540,7 @@ const Celebration = forwardRef((props, ref) => {
                                 className="absolute left-1/2 ml-[-1rem] mt-[-1rem] pointer-events-none"
                                 style={{
                                     top: "28%",
-                                    transform: "translateZ(60px)",
+                                    translateZ: 60,
                                 }}
                             >
                                 <span

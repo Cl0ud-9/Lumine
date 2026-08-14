@@ -35,7 +35,6 @@ export default {
                 'rose-pink': '#ff4d6d',
                 'blush-pink': '#ffe5ec',
                 'loading-bg-light': '#f8f6f6',
-                'loading-bg-dark': '#221015',
             },
             fontFamily: {
                 satisfy: ['Satisfy', 'cursive'],

@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import CustomCursor from '../components/CustomCursor';
+import FloatingLabelInput from '../components/FloatingLabelInput';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 const ResetPassword = () => {
+    usePageTitle('Reset Password');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -62,7 +65,7 @@ const ResetPassword = () => {
                     <div className="text-center mb-8">
                         <motion.h1
                             className="font-['Fredoka'] text-4xl font-bold text-[#ff4d7d] mb-2"
-                            style={{ willChange: "transform", transform: "translateZ(30px)" }}
+                            style={{ willChange: "transform", translateZ: 30 }}
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                         >
@@ -73,53 +76,49 @@ const ResetPassword = () => {
 
                     <form onSubmit={handleResetPassword} className="space-y-6">
                         <div>
-                            <label className="font-['Quicksand'] block text-sm font-semibold text-gray-700 mb-2">
-                                New Password
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    className="font-['Quicksand'] w-full px-4 py-3 rounded-xl border-2 border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition pr-10"
-                                    placeholder="••••••••"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none ${showPassword ? 'text-pink-500' : 'text-gray-400 md:hover:text-pink-500'}`}
-                                >
-                                    <span className="material-symbols-outlined text-lg">
-                                        {showPassword ? 'favorite' : 'favorite_border'}
-                                    </span>
-                                </button>
-                            </div>
+                            <FloatingLabelInput
+                                label="New Password"
+                                type={showPassword ? "text" : "password"}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                hasEndAdornment
+                                endAdornment={
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                        className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none ${showPassword ? 'text-pink-500' : 'text-gray-400 md:hover:text-pink-500'}`}
+                                    >
+                                        <span className="material-symbols-outlined text-lg" aria-hidden="true">
+                                            {showPassword ? 'favorite' : 'favorite_border'}
+                                        </span>
+                                    </button>
+                                }
+                            />
                         </div>
 
                         <div>
-                            <label className="font-['Quicksand'] block text-sm font-semibold text-gray-700 mb-2">
-                                Confirm New Password
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type={showConfirmPassword ? "text" : "password"}
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    required
-                                    className="font-['Quicksand'] w-full px-4 py-3 rounded-xl border-2 border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition pr-10"
-                                    placeholder="••••••••"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none ${showConfirmPassword ? 'text-pink-500' : 'text-gray-400 md:hover:text-pink-500'}`}
-                                >
-                                    <span className="material-symbols-outlined text-lg">
-                                        {showConfirmPassword ? 'favorite' : 'favorite_border'}
-                                    </span>
-                                </button>
-                            </div>
+                            <FloatingLabelInput
+                                label="Confirm New Password"
+                                type={showConfirmPassword ? "text" : "password"}
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                                hasEndAdornment
+                                endAdornment={
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                                        className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none ${showConfirmPassword ? 'text-pink-500' : 'text-gray-400 md:hover:text-pink-500'}`}
+                                    >
+                                        <span className="material-symbols-outlined text-lg" aria-hidden="true">
+                                            {showConfirmPassword ? 'favorite' : 'favorite_border'}
+                                        </span>
+                                    </button>
+                                }
+                            />
                         </div>
 
                         {error && (
@@ -139,6 +138,15 @@ const ResetPassword = () => {
                             </span>
                         </button>
                     </form>
+
+                    <div className="mt-6 text-center">
+                        <p className="font-['Quicksand'] text-gray-600 font-semibold">
+                            Changed your mind?{' '}
+                            <Link to="/auth/verify" className="text-[#ff4d7d] font-bold hover:underline">
+                                Back to Login
+                            </Link>
+                        </p>
+                    </div>
                 </div>
             </motion.div>
         </div>

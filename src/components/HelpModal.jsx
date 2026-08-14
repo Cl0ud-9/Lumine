@@ -30,7 +30,7 @@ const HelpModal = ({ show, onClose }) => {
                             </motion.div>
                             <motion.h2
                                 className="font-['Fredoka'] text-2xl sm:text-3xl font-bold text-gray-800 mb-2"
-                                style={{ willChange: "transform", transform: "translateZ(30px)" }}
+                                style={{ willChange: "transform", translateZ: 30 }}
                                 animate={{ y: [0, -4, 0] }}
                                 transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                             >

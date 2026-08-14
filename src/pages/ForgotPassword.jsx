@@ -3,8 +3,11 @@ import { supabase } from '../lib/supabaseClient';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import CustomCursor from '../components/CustomCursor';
+import FloatingLabelInput from '../components/FloatingLabelInput';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 const ForgotPassword = () => {
+    usePageTitle('Forgot Password');
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
@@ -48,7 +51,7 @@ const ForgotPassword = () => {
                     <div className="text-center mb-8">
                         <motion.h1
                             className="font-['Fredoka'] text-4xl font-bold text-[#ff4d7d] mb-2"
-                            style={{ willChange: "transform", transform: "translateZ(30px)" }}
+                            style={{ willChange: "transform", translateZ: 30 }}
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                         >
@@ -59,16 +62,12 @@ const ForgotPassword = () => {
 
                     <form onSubmit={handleResetPassword} className="space-y-6">
                         <div>
-                            <label className="font-['Quicksand'] block text-sm font-semibold text-gray-700 mb-2">
-                                Email
-                            </label>
-                            <input
+                            <FloatingLabelInput
+                                label="Email"
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
-                                className="font-['Quicksand'] w-full px-4 py-3 rounded-xl border-2 border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition"
-                                placeholder="your@email.com"
                             />
                         </div>
 

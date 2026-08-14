@@ -12,7 +12,7 @@ const LoadingScreen = ({ onComplete }) => {
 
     return (
         <motion.div
-            className="fixed inset-0 z-50 bg-background-light dark:bg-background-dark font-jakarta overflow-hidden flex flex-col items-center justify-center min-h-screen"
+            className="fixed inset-0 z-50 bg-background-light font-jakarta overflow-hidden flex flex-col items-center justify-center min-h-screen"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.3 } }}
@@ -42,12 +42,6 @@ const LoadingScreen = ({ onComplete }) => {
                     </div>
                 </div>
             </main>
-
-            {/* Hidden images to preload */}
-            <div className="hidden">
-                <img alt="preload" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDGAfDFUioUU9jH1tn0xRUZxVKv-Ca6YY1bWPDouNKjoeXTPGag_wY6LRzpKBIYpclHxR2irnIA4zD30tjpZT_N1yh2tIQiZLHbARWKVJU3dXoZnRphb7XO6MnwwdrS-DWRHmMtTcd6In1TalgbzJ7DJrzVuFPGAcob9sL3mHK2YsMgtEA3BEaM-_EiP8pZaS6toN64oJO3ZxcSSMRzsZZphQjNvsrN-XK1p8yoGTh-mWhDxFD_zqoxquaSaD3JUtIvuP4yfkhagM" />
-                <img alt="preload" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAkHX-AZfDGJAQFPjnuUr897kATFKhLQsLT-6XWh0fhjQKRl8OF_FBmw8S1kZwqQbcCSoR26AHXJBtVxizvsjxTa8QXt-_TkKomJZQfg9awswpFsELQaOlBwJSfBVAx6PWKd4qFFBXIjUnMwxxf_qlMMq3QYAcuX7D9z8NawpxrQmHmGm8PCFupDTYYdOTDpTXAjZR5HGXB2bExtWhWddLEaobxS8waBD5e4EG7S1-s6I4ccDL7Oa0lyOodU0qEsld8OfmMpFsuL6M" />
-            </div>
         </motion.div>
     );
 };

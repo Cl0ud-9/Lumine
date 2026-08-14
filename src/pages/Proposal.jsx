@@ -3,6 +3,10 @@ import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabaseClient';
 import { motion, LayoutGroup, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
+import { useFloatingElements } from '../hooks/useFloatingElements';
+import FloatingParticles from '../components/FloatingParticles';
+import { logger } from '../lib/logger';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 
 const NO_PHRASES = [
@@ -34,9 +38,8 @@ const PROPOSAL_SUBTITLES = [
     "You are my favorite notification."
 ];
 
-const SPARKLE_COLORS = ['#d8b4fe', '#f9a8d4', '#ffffff']; // Purple-300, Pink-300, White
-
 const Proposal = React.forwardRef(({ onTransition }, ref) => {
+    usePageTitle('For You');
     const { setStep } = useApp();
     const [searchParams] = useSearchParams();
     const token = searchParams.get('token');
@@ -80,7 +83,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                 await supabase.rpc('track_visit', { url_token: token });
 
             } catch (error) {
-                console.error('Error tracking visit:', error);
+                logger.error('Error tracking visit:', error);
                 setIsInvalid(true); // Treat error as invalid for safety
             }
         };
@@ -115,30 +118,8 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         y.set(0);
     };
 
-    const [elements] = useState(() => {
-        const hearts = Array.from({ length: 15 }).map((_, i) => ({
-            id: `heart-${i}`,
-            type: 'heart',
-            left: Math.random() * 100,
-            delay: Math.random() * 5,
-            duration: 15 + Math.random() * 10,
-            size: 20 + Math.random() * 30,
-            rotate: Math.random() * 30 - 15,
-            color: '#ec4899' // Pink-500 (darker) for better visibility
-        }));
-
-        const sparkles = Array.from({ length: 12 }).map((_, i) => ({
-            id: `sparkle-${i}`,
-            type: 'sparkle',
-            left: Math.random() * 100,
-            delay: Math.random() * 5,
-            duration: 4 + Math.random() * 6,
-            size: 15 + Math.random() * 20, // Slightly larger sparkles
-            rotate: Math.random() * 180,
-            color: SPARKLE_COLORS[Math.floor(Math.random() * SPARKLE_COLORS.length)]
-        }));
-        return [...hearts, ...sparkles];
-    });
+    // Trimmed from 15/12 to 10/8 - visually near-identical ambient density at noticeably lower cost.
+    const elements = useFloatingElements({ heartCount: 10, sparkleCount: 8, heartColor: '#ec4899' });
 
 
 
@@ -151,7 +132,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         if (token) {
             supabase.rpc('track_yes', { url_token: token })
                 .then(({ error }) => {
-                    if (error) console.error('Error tracking yes:', error);
+                    if (error) logger.error('Error tracking yes:', error);
                 });
         }
 
@@ -235,7 +216,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
             try {
                 await supabase.rpc('track_no', { url_token: token });
             } catch (error) {
-                console.error('Error tracking No click:', error);
+                logger.error('Error tracking No click:', error);
             }
         }
     }, [moveNoButton, token]);
@@ -306,52 +287,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
             >
                 {/* Shared Background Elements */}
                 <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-                    {elements.map((el) => (
-                        <motion.div
-                            key={el.id}
-                            initial={{ y: "110vh", opacity: 0 }}
-                            animate={{
-                                y: "-10vh",
-                                opacity: [0, el.type === 'heart' ? 0.8 : 0.9, 0]
-                            }}
-                            transition={
-                                prefersReducedMotion
-                                    ? { duration: 0 }
-                                    : {
-                                        duration: el.duration,
-                                        repeat: Infinity,
-                                        delay: el.delay,
-                                        ease: "linear"
-                                    }
-                            }
-                            style={{
-                                left: `${el.left}%`,
-                                position: 'absolute',
-                                width: el.size,
-                                height: el.size,
-                            }}
-                        >
-                            {el.type === 'heart' ? (
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    fill="currentColor"
-                                    className="w-full h-full opacity-80 drop-shadow-sm"
-                                    style={{ transform: `rotate(${el.rotate}deg)`, color: el.color }}
-                                >
-                                    <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.245 15.245 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
-                                </svg>
-                            ) : (
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    fill="currentColor"
-                                    className="w-full h-full animate-pulse drop-shadow-sm"
-                                    style={{ transform: `rotate(${el.rotate}deg)`, color: el.color }}
-                                >
-                                    <path d="M12 2L14.39 9.61L22 12L14.39 14.39L12 22L9.61 14.39L2 12L9.61 9.61L12 2Z" />
-                                </svg>
-                            )}
-                        </motion.div>
-                    ))}
+                    <FloatingParticles elements={elements} prefersReducedMotion={prefersReducedMotion} heartVariant="filled" />
                 </div>
 
                 <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -398,7 +334,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                             <motion.h1
                                 animate={{ y: [0, -5, 0] }}
                                 transition={{ repeat: Infinity, duration: 4, ease: "easeInOut", delay: 0.2 }}
-                                style={{ transform: "translateZ(40px)", willChange: "transform" }}
+                                style={{ translateZ: 40, willChange: "transform" }}
                                 className="font-['Fredoka'] text-3xl md:text-4xl font-bold text-gray-700 mb-3"
                             >
                                 Oops! Invalid Link
@@ -446,7 +382,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                 <motion.div
                                     layoutId="hero-heart"
                                     className="z-50"
-                                    style={{ transform: "translateZ(50px)" }}
+                                    style={{ translateZ: 50 }}
                                     variants={{
                                         hidden: { scale: 0, opacity: 0 },
                                         visible: { scale: 1, opacity: 1, transition: { type: "spring", duration: 1.2, bounce: 0.5 } } // Added explicit spring to heart
@@ -473,7 +409,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                     <motion.h1
                                         animate={{ y: [0, -4, 0] }}
                                         transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
-                                        style={{ willChange: "transform", fontWeight: 700, transform: "translateZ(40px)" }}
+                                        style={{ willChange: "transform", fontWeight: 700, translateZ: 40 }}
                                         className="font-['Fredoka'] text-4xl md:text-6xl lg:text-6xl text-[#ff4d7d] tracking-tight leading-none"
                                     >
                                         Will you be my<br />Valentine ?
@@ -493,7 +429,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                             ease: "easeInOut",
                                             delay: 0.6
                                         }}
-                                        style={{ willChange: "transform", transform: "translateZ(30px)" }}
+                                        style={{ willChange: "transform", translateZ: 30 }}
                                         className="font-['Pacifico'] text-lg md:text-3xl text-pink-500/80 -rotate-1"
                                     >
                                         {subtitle}

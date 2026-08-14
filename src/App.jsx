@@ -1,20 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { supabase } from './lib/supabaseClient';
 import LoadingScreen from './components/LoadingScreen';
 import Proposal from './pages/Proposal';
 import Celebration from './pages/Celebration';
-import Dashboard from './pages/Dashboard';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import EmailConfirmation from './pages/EmailConfirmation';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import MagicalBackground from './components/MagicalBackground';
 import CircularTransition from './components/CircularTransition';
 import CustomCursor from './components/CustomCursor';
 import { AnimatePresence } from 'framer-motion';
+
+// Code-split everything that isn't part of the "/" proposal flow - a recipient opening a
+// shared link should only ever download Proposal/Celebration, never the dashboard or auth bundle.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/Signup'));
+const EmailConfirmation = lazy(() => import('./pages/EmailConfirmation'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+
+const RouteFallback = () => (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-mesh">
+        <div className="w-12 h-12 border-4 border-pink-300 border-t-transparent rounded-full animate-spin" />
+    </div>
+);
 
 const ProtectedRoute = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -70,7 +78,10 @@ const ProposalFlow = () => {
     return (
         <div className="min-h-screen font-inter selection:bg-pink-200 selection:text-pink-900 overflow-hidden relative cursor-none">
             <CustomCursor />
-            <MagicalBackground />
+            {/* Note: no ambient MagicalBackground layer here - Proposal/Celebration/LoadingScreen
+                all paint their own fully opaque backgrounds over this container, so anything
+                rendered behind them is invisible. Keeping it mounted only burned CPU/GPU on
+                animations nobody could ever see. */}
             <div className="relative z-10 w-full">
                 {showCircle && <CircularTransition isVisible={showCircle} isMobile={isMobile} />}
 
@@ -94,19 +105,21 @@ function App() {
     return (
         <AppProvider>
             <BrowserRouter>
-                <Routes>
-                    <Route path="/auth/verify" element={<Login />} />
-                    <Route path="/auth/register" element={<Signup />} />
-                    <Route path="/auth/email-confirmation" element={<EmailConfirmation />} />
-                    <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-                    <Route path="/auth/reset-password" element={<ResetPassword />} />
-                    <Route path="/admin/analytics" element={
-                        <ProtectedRoute>
-                            <Dashboard />
-                        </ProtectedRoute>
-                    } />
-                    <Route path="/" element={<ProposalFlow />} />
-                </Routes>
+                <Suspense fallback={<RouteFallback />}>
+                    <Routes>
+                        <Route path="/auth/verify" element={<Login />} />
+                        <Route path="/auth/register" element={<Signup />} />
+                        <Route path="/auth/email-confirmation" element={<EmailConfirmation />} />
+                        <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+                        <Route path="/auth/reset-password" element={<ResetPassword />} />
+                        <Route path="/admin/analytics" element={
+                            <ProtectedRoute>
+                                <Dashboard />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/" element={<ProposalFlow />} />
+                    </Routes>
+                </Suspense>
             </BrowserRouter>
         </AppProvider>
     );

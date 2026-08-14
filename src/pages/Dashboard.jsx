@@ -5,8 +5,12 @@ import { useNavigate } from 'react-router-dom';
 import CustomCursor from '../components/CustomCursor';
 import HelpModal from '../components/HelpModal';
 import Toast from '../components/Toast';
+import FloatingLabelInput from '../components/FloatingLabelInput';
+import { logger } from '../lib/logger';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 const Dashboard = () => {
+    usePageTitle('Dashboard');
     const [invites, setInvites] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadProgress, setLoadProgress] = useState(0);
@@ -28,7 +32,7 @@ const Dashboard = () => {
         if (showLoading) {
             setLoading(true);
             setLoadProgress(0);
-            // Tick up steadily — capped at 90 — so there's always visible movement
+            // Tick up steadily - capped at 90 - so there's always visible movement
             clearInterval(progressTimerRef.current);
             progressTimerRef.current = setInterval(() => {
                 setLoadProgress(prev => {
@@ -56,7 +60,7 @@ const Dashboard = () => {
             .order('created_at', { ascending: false });
 
         if (error) {
-            console.error('Error fetching invites:', error);
+            logger.error('Error fetching invites:', error);
         } else {
             setInvites(data || []);
         }
@@ -88,7 +92,7 @@ const Dashboard = () => {
                         filter: `user_id=eq.${user.id}`
                     },
                     (payload) => {
-                        console.log('Realtime update:', payload.eventType);
+                        logger.log('Realtime update:', payload.eventType);
                         // Re-fetch all invites on any change for consistency
                         fetchInvites(false);
                     }
@@ -148,7 +152,7 @@ const Dashboard = () => {
             });
 
         if (error) {
-            console.error('Error creating invite:', error);
+            logger.error('Error creating invite:', error);
             setToast({ show: true, message: 'Failed to create URL' });
         } else {
             setRecipientName('');
@@ -180,7 +184,7 @@ const Dashboard = () => {
             .eq('id', id);
 
         if (error) {
-            console.error('Error deleting invite:', error);
+            logger.error('Error deleting invite:', error);
             setToast({ show: true, message: 'Failed to delete URL' });
         } else {
             fetchInvites();
@@ -203,7 +207,7 @@ const Dashboard = () => {
             .eq('user_id', userIdRef.current);
 
         if (deleteError) {
-            console.error('Error deleting data:', deleteError);
+            logger.error('Error deleting data:', deleteError);
             setToast({ show: true, message: 'Failed to delete data. Please try again.' });
             return;
         }
@@ -372,7 +376,7 @@ const Dashboard = () => {
                     <div>
                         <motion.h1
                             className="font-['Fredoka'] text-2xl sm:text-3xl md:text-4xl font-bold text-[#ff4d7d] mb-1 sm:mb-2"
-                            style={{ willChange: "transform", transform: "translateZ(30px)" }}
+                            style={{ willChange: "transform", translateZ: 30 }}
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                         >
@@ -483,16 +487,13 @@ const Dashboard = () => {
                                     <span className="material-symbols-outlined text-3xl">favorite</span>
                                 </h2>
                                 <form onSubmit={createInvite}>
-                                    <label className="font-['Quicksand'] block text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                                        Recipient Name
-                                    </label>
-                                    <input
+                                    <FloatingLabelInput
+                                        label="Recipient Name"
                                         type="text"
                                         value={recipientName}
                                         onChange={(e) => setRecipientName(e.target.value)}
                                         required
-                                        placeholder="e.g., Sakshi"
-                                        className="font-['Quicksand'] w-full px-5 py-4 rounded-2xl border-2 border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition mb-6 text-lg"
+                                        className="mb-6"
                                     />
                                     <div className="flex gap-3">
                                         <button
@@ -540,7 +541,7 @@ const Dashboard = () => {
                                 </div>
                                 <motion.h3
                                     className="font-['Fredoka'] text-2xl font-bold text-gray-800 mb-3"
-                                    style={{ willChange: "transform", transform: "translateZ(30px)" }}
+                                    style={{ willChange: "transform", translateZ: 30 }}
                                     animate={{ y: [0, -4, 0] }}
                                     transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                                 >
@@ -596,7 +597,7 @@ const Dashboard = () => {
                                 </div>
                                 <motion.h3
                                     className="font-['Fredoka'] text-2xl font-bold text-gray-800 mb-3"
-                                    style={{ willChange: "transform", transform: "translateZ(30px)" }}
+                                    style={{ willChange: "transform", translateZ: 30 }}
                                     animate={{ y: [0, -4, 0] }}
                                     transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                                 >
@@ -641,7 +642,11 @@ const Dashboard = () => {
                                 </h2>
                                 <div className="flex-1 h-1 bg-gradient-to-r from-transparent to-gray-200 rounded-full"></div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* items-start: without it, CSS Grid's default align-items:stretch forces every
+                                card in a row to match its tallest row-mate's height. Expanding one card's
+                                visit history grew its row height, and the sibling card - unchanged, but
+                                stretched - grew an empty gap to match, which read as it "auto-expanding" too. */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                 {waitingInvites.map((invite) => (
                                     <InviteCard
                                         key={invite.id}
@@ -667,7 +672,11 @@ const Dashboard = () => {
                                 </h2>
                                 <div className="flex-1 h-1 bg-gradient-to-r from-transparent to-yellow-200 rounded-full"></div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* items-start: without it, CSS Grid's default align-items:stretch forces every
+                                card in a row to match its tallest row-mate's height. Expanding one card's
+                                visit history grew its row height, and the sibling card - unchanged, but
+                                stretched - grew an empty gap to match, which read as it "auto-expanding" too. */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                 {invites.filter(i => i.first_opened_at && !i.used).map((invite) => (
                                     <InviteCard
                                         key={invite.id}
@@ -693,7 +702,11 @@ const Dashboard = () => {
                                 </h2>
                                 <div className="flex-1 h-1 bg-gradient-to-r from-transparent to-pink-200 rounded-full"></div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* items-start: without it, CSS Grid's default align-items:stretch forces every
+                                card in a row to match its tallest row-mate's height. Expanding one card's
+                                visit history grew its row height, and the sibling card - unchanged, but
+                                stretched - grew an empty gap to match, which read as it "auto-expanding" too. */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                 {yesInvites.map((invite) => (
                                     <InviteCard
                                         key={invite.id}
@@ -748,6 +761,29 @@ const Dashboard = () => {
     );
 };
 
+// Full class strings (not built with template-literal interpolation) so Tailwind's
+// JIT scanner can actually find and generate them - a `bg-${color}-100` string built
+// at runtime is invisible to the build-time content scan and would silently emit no CSS.
+const BADGE_COLORS = {
+    gray: 'bg-gray-100 text-gray-500',
+    purple: 'bg-purple-100 text-purple-500',
+    rose: 'bg-rose-100 text-rose-500',
+    pink: 'bg-pink-100 text-pink-500',
+};
+
+// Small circular icon chip - gives every utility icon a soft colored backing instead of
+// floating as a bare glyph next to text, which is what was reading as "dated" on the cards.
+// Same static-class rule as BADGE_COLORS above: no interpolated size classes.
+const IconBadge = ({ icon, color = 'gray', large = false }) => (
+    <span
+        className={`${large ? 'w-9 h-9' : 'w-7 h-7'} rounded-full flex items-center justify-center flex-shrink-0 ${BADGE_COLORS[color]}`}
+    >
+        <span className={`material-symbols-outlined leading-none ${large ? 'text-lg' : 'text-sm'}`} aria-hidden="true">
+            {icon}
+        </span>
+    </span>
+);
+
 // Invite Card Component
 const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTime, calculateTimeToYes }) => {
     const isPending = invite.first_opened_at && !invite.used;
@@ -797,9 +833,10 @@ const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTi
                 </div>
                 <button
                     onClick={() => onDelete(invite.id, invite.recipient_name)}
-                    className="text-gray-300 hover:text-red-500 transition text-xl"
+                    aria-label={`Delete proposal for ${invite.recipient_name}`}
+                    className="w-9 h-9 rounded-full bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition flex items-center justify-center flex-shrink-0"
                 >
-                    <span className="material-symbols-outlined text-xl">delete</span>
+                    <span className="material-symbols-outlined text-lg" aria-hidden="true">delete</span>
                 </button>
             </div>
 
@@ -807,9 +844,10 @@ const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTi
             <div className="flex gap-3 mb-5 flex-wrap">
                 <button
                     onClick={() => setShowVisitDetails(!showVisitDetails)}
-                    className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl hover:bg-gray-100 transition cursor-pointer"
+                    aria-expanded={showVisitDetails}
+                    className="flex items-center gap-2.5 bg-gray-50 pl-2.5 pr-3.5 py-2 rounded-xl hover:bg-gray-100 transition cursor-pointer"
                 >
-                    <span className="material-symbols-outlined text-sm text-gray-400">bar_chart</span>
+                    <IconBadge icon="bar_chart" color="gray" />
                     <div>
                         <div className="font-['Quicksand'] text-xs text-gray-500 font-semibold">Visits</div>
                         <div className="font-['Fredoka'] text-sm font-bold text-gray-800">{invite.total_visits}</div>
@@ -817,15 +855,16 @@ const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTi
                     <motion.span
                         animate={{ rotate: showVisitDetails ? 180 : 0 }}
                         transition={{ duration: 0.2 }}
-                        className="text-gray-400 text-sm ml-1"
+                        className="material-symbols-outlined text-gray-400 text-lg ml-0.5"
+                        aria-hidden="true"
                     >
-                        ▼
+                        expand_more
                     </motion.span>
                 </button>
 
                 {(isPending || isYes) && invite.first_opened_at && (
-                    <div className="flex items-center gap-2 bg-purple-50 px-4 py-2 rounded-xl">
-                        <span className="material-symbols-outlined text-sm text-purple-400">schedule</span>
+                    <div className="flex items-center gap-2.5 bg-purple-50 pl-2.5 pr-3.5 py-2 rounded-xl">
+                        <IconBadge icon="schedule" color="purple" />
                         <div>
                             <div className="font-['Quicksand'] text-xs text-purple-600 font-semibold">Last Visit</div>
                             <div className="font-['Fredoka'] text-sm font-bold text-purple-700">
@@ -852,7 +891,7 @@ const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTi
                     >
                         <div className="bg-gradient-to-r from-gray-50 to-purple-50/30 rounded-2xl p-4 border border-gray-100">
                             <div className="font-['Quicksand'] text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-2">
-                                <span className="material-symbols-outlined text-sm">history</span> Visit History
+                                <IconBadge icon="history" color="purple" /> Visit History
                             </div>
                             <div className="custom-scrollbar-wrapper">
                                 <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
@@ -875,8 +914,8 @@ const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTi
                             {/* No Clicks Counter */}
                             {invite.no_clicks > 0 && (
                                 <div className="mt-4 pt-4 border-t border-gray-200">
-                                    <div className="flex items-center gap-2 text-sm">
-                                        <span className="material-symbols-outlined text-2xl text-gray-400">block</span>
+                                    <div className="flex items-center gap-2.5 text-sm">
+                                        <IconBadge icon="heart_broken" color="rose" />
                                         <span className="text-gray-700 font-semibold">
                                             Clicked {"\""}No{"\""} <span className="text-pink-600 font-bold">{invite.no_clicks}</span> time{invite.no_clicks !== 1 ? 's' : ''}!
                                         </span>
@@ -890,7 +929,7 @@ const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTi
                             {invite.yes_timestamps && invite.yes_timestamps.length > 1 && (
                                 <div className="mt-4 pt-4 border-t border-gray-200">
                                     <div className="text-xs font-semibold text-pink-600 uppercase tracking-wide mb-2 flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-sm">favorite</span> {"\""}Yes{"\""} History
+                                        <IconBadge icon="favorite" color="pink" /> {"\""}Yes{"\""} History
                                     </div>
                                     <div className="custom-scrollbar-wrapper">
                                         <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">

@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import CustomCursor from '../components/CustomCursor';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 const EmailConfirmation = () => {
+    usePageTitle('Verify Your Email');
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-mesh px-4 cursor-none relative overflow-hidden">
             <CustomCursor />
@@ -33,7 +35,7 @@ const EmailConfirmation = () => {
                     <div className="mb-4">
                         <motion.h1
                             className="font-['Fredoka'] text-3xl font-bold text-[#ff4d7d] mb-2"
-                            style={{ willChange: "transform", transform: "translateZ(30px)" }}
+                            style={{ willChange: "transform", translateZ: 30 }}
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                         >

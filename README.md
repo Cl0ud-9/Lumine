@@ -124,13 +124,35 @@ Run the contents of `supabase_schema.sql` in your Supabase SQL Editor to set up 
 
 ---
 
-### 5️⃣ Run Locally
+### 5️⃣ Configure Email (Auth SMTP)
+
+Supabase's **built-in email sender is not meant for production use** - it's rate-limited to a
+handful of emails per hour and sends from a shared, often spam-flagged address. Signup
+confirmation and password-reset emails will be unreliable (or silently never arrive) until you
+connect a real provider:
+
+1. Sign up with an SMTP provider (e.g. [Resend](https://resend.com), [Postmark](https://postmarkapp.com), or [SendGrid](https://sendgrid.com) - all have usable free tiers).
+2. In your Supabase Dashboard, go to **Project Settings → Authentication → SMTP Settings** and enable **Custom SMTP** with that provider's credentials.
+3. While you're there, go to **Authentication → Email Templates** and paste in the HTML from `src/email_templates/lumine_confirm_signup.html` and `src/email_templates/lumine_password_reset.html` for the "Confirm signup" and "Reset password" templates respectively.
+
+Skipping this step is fine for quick local testing (Supabase's default sender still works for a
+couple of emails), but don't rely on it for anything you're actually sending to someone.
+
+---
+
+### 6️⃣ Run Locally
 
 ```bash
 npm run dev
 ```
 
-Visit `http://localhost:5173` to see the app in action!
+The app root (`/`) is the **recipient-facing proposal page** - it expects a `?token=...` query
+string from a link generated in the dashboard, so opening it directly with nothing after it will
+just show an "Invalid Link" screen. To actually use the app locally:
+
+1. Visit `http://localhost:5173/auth/register` and create an account.
+2. Log in, then create a proposal URL from the Dashboard.
+3. Open the **generated link** (something like `http://localhost:5173/?token=...`) to see the actual proposal flow.
 
 ---
 
@@ -154,6 +176,8 @@ Ready to share the love with the world?
 | Login fails | Check Supabase URL/Key in `.env` |
 | Styles broken | Ensure Tailwind is running (`npm run dev`) |
 | Animations laggy | Enable hardware acceleration (browser settings) |
+| Confirmation/reset email never arrives | Configure custom SMTP - see [step 5](#5️⃣-configure-email-auth-smtp) above. Supabase's default sender is rate-limited and unreliable. |
+| App shows a blank/error page on startup | You're likely missing `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` in `.env` - the app now fails fast with a clear console error instead of silently breaking later |
 
 ---
 

@@ -1,151 +1,134 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue } from 'framer-motion';
-import gsap from 'gsap';
 import heartCursor from '../assets/cursors/heart-cursor.png';
 import pointerCursor from '../assets/cursors/pointer-cursor.png';
 
+// Trail "worm" - each line chases the point ahead of it with simple lerp easing.
+// Rendered via direct DOM attribute writes inside a single requestAnimationFrame loop
+// instead of one GSAP tween-with-JS-modifier per line (previously 50 tweens x 2 axis
+// callbacks = up to 100 JS callback invocations every frame). This is the biggest single
+// perf win in the app since CustomCursor is mounted for the whole proposal/celebration flow.
+const TRAIL_LENGTH = 24;
+const TRAIL_EASE = 0.5;
+const REVEAL_MS = 500;
+
 const CustomCursor = () => {
     const [isTouch, setIsTouch] = useState(false);
+    const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+    const [isHovering, setIsHovering] = useState(false);
     const cursorX = useMotionValue(-100);
     const cursorY = useMotionValue(-100);
-    const [isHovering, setIsHovering] = useState(false);
-    const svgRef = useRef(null);
+    const lineRefs = useRef([]);
 
     useEffect(() => {
-        const checkTouch = () => {
-            setIsTouch(window.matchMedia("(pointer: coarse)").matches);
-        };
+        const checkTouch = () => setIsTouch(window.matchMedia('(pointer: coarse)').matches);
         checkTouch();
         window.addEventListener('resize', checkTouch);
 
-        // GSAP Trail Logic
-        const total = 50;
-        const ease = 0.5;
-        // Start pointer off-screen or center, but we'll control visibility with a flag
-        let pointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-        const lines = [];
-        let hasMoved = false; // Flag to track first movement
+        const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+        setPrefersReducedMotion(mediaQuery.matches);
+        const motionHandler = () => setPrefersReducedMotion(mediaQuery.matches);
+        mediaQuery.addEventListener('change', motionHandler);
 
-        const createLine = (leader, i) => {
-            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            svgRef.current.appendChild(line);
-
-            // PINK GRADIENT LOGIC
-            // Start (near cursor): Hot Pink (#ff5c8d)
-            // End (tail): Soft Pink/White (#ffc2d1)
-            // Or just a solid pink with opacity fade. Let's do a nice gradient.
-            const hue = 340; // Pinkish
-            const sat = 100;
-            const light = 60 + (i / total) * 30; // 60% -> 90% Lightness
-            const color = `hsl(${hue}, ${sat}%, ${light}%)`;
-
-            gsap.set(line, {
-                x: -15, y: -15,
-                alpha: 0, // Start invisible
-                attr: { stroke: color, "stroke-width": 2 } // Set stroke color here
-            });
-
-
-
-            gsap.to(line, {
-                duration: 1000,
-                x: "+=1",
-                y: "+=1",
-                repeat: -1,
-                modifiers: {
-                    x: function () {
-                        // Use getProperty for reliability (posX local var not needed)
-                        let currentX = gsap.getProperty(line, "x");
-                        let leaderX = (i === 0) ? pointer.x : gsap.getProperty(lines[i - 1], "x");
-
-                        var x = currentX + (leaderX - currentX) * ease;
-                        line.setAttribute("x2", leaderX - x);
-                        return x;
-                    },
-                    y: function () {
-                        let currentY = gsap.getProperty(line, "y");
-                        let leaderY = (i === 0) ? pointer.y : gsap.getProperty(lines[i - 1], "y");
-
-                        var y = currentY + (leaderY - currentY) * ease;
-                        line.setAttribute("y2", leaderY - y);
-                        return y;
-                    }
-                }
-            });
-
-            return line;
-        };
-
-
-        const onMouseMove = (e) => {
-            const x = e.clientX;
-            const y = e.clientY;
-            // Offset trail slightly to bottom right for better alignment with heart cursor
-            pointer.x = x + 20;
-            pointer.y = y + 18;
-            cursorX.set(x);
-            cursorY.set(y);
-
-            // Reveal trail on first move
-            if (!hasMoved) {
-                hasMoved = true;
-                // Animate lines to their correct opacity
-                lines.forEach((line, i) => {
-                    gsap.to(line, { alpha: (total - i) / total, duration: 0.5 });
-                });
-            }
-
-            // Robust hover check
-            try {
-                const target = document.elementFromPoint(x, y);
-                if (target) {
-                    const isClickable = target.matches('button, a, input, select, textarea, [role="button"]') ||
-                        target.closest('button, a, [role="button"]');
-                    setIsHovering(!!isClickable);
-                } else {
-                    setIsHovering(false);
-                }
-            } catch (_err) { // eslint-disable-line no-unused-vars
-                setIsHovering(false);
-            }
-        };
-
-        window.addEventListener('mousemove', onMouseMove);
-
-        // Initialize lines
-        // Wait for ref to be populated
-        if (svgRef.current) {
-            // Clean previous
-            while (svgRef.current.firstChild) svgRef.current.removeChild(svgRef.current.firstChild);
-
-            // Lines chain to each other via the modifier logic inside createLine.
-
-            for (let i = 0; i < total; i++) {
-                lines.push(createLine(null, i)); // null leader, logic handled in modifier
-            }
-        }
-
-
-        const svgEl = svgRef.current; // Capture before async cleanup
         return () => {
             window.removeEventListener('resize', checkTouch);
-            window.removeEventListener('mousemove', onMouseMove);
-            gsap.globalTimeline.clear();
-            if (svgEl) {
-                while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
+            mediaQuery.removeEventListener('change', motionHandler);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (isTouch) return undefined;
+
+        const pointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        const points = Array.from({ length: TRAIL_LENGTH }, () => ({ x: pointer.x, y: pointer.y }));
+        let hasMoved = false;
+        let revealStart = null;
+        let hovering = false;
+        let rafId = null;
+
+        const onMouseMove = (e) => {
+            // Trail follows slightly offset from the cursor icon for better visual alignment.
+            pointer.x = e.clientX + 20;
+            pointer.y = e.clientY + 18;
+            cursorX.set(e.clientX);
+            cursorY.set(e.clientY);
+            hasMoved = true;
+
+            // e.target is reliable here (the cursor overlay is pointer-events:none), so this
+            // avoids calling document.elementFromPoint on every pixel of mouse movement -
+            // that call forces a synchronous layout and was a major jank source.
+            const target = e.target;
+            const isClickable = !!(target && (
+                target.matches?.('button, a, input, select, textarea, [role="button"]') ||
+                target.closest?.('button, a, [role="button"]')
+            ));
+            if (isClickable !== hovering) {
+                hovering = isClickable;
+                setIsHovering(isClickable);
             }
         };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+        window.addEventListener('mousemove', onMouseMove, { passive: true });
+
+        if (!prefersReducedMotion) {
+            const tick = (now) => {
+                if (hasMoved) {
+                    if (revealStart === null) revealStart = now;
+                    const revealProgress = Math.min(1, (now - revealStart) / REVEAL_MS);
+
+                    let leaderX = pointer.x;
+                    let leaderY = pointer.y;
+                    for (let i = 0; i < TRAIL_LENGTH; i++) {
+                        const p = points[i];
+                        p.x += (leaderX - p.x) * TRAIL_EASE;
+                        p.y += (leaderY - p.y) * TRAIL_EASE;
+
+                        const line = lineRefs.current[i];
+                        if (line) {
+                            line.setAttribute('x1', p.x);
+                            line.setAttribute('y1', p.y);
+                            line.setAttribute('x2', leaderX);
+                            line.setAttribute('y2', leaderY);
+                            line.style.opacity = ((TRAIL_LENGTH - i) / TRAIL_LENGTH) * revealProgress;
+                        }
+
+                        leaderX = p.x;
+                        leaderY = p.y;
+                    }
+                }
+                rafId = requestAnimationFrame(tick);
+            };
+            rafId = requestAnimationFrame(tick);
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            if (rafId) cancelAnimationFrame(rafId);
+        };
+    }, [isTouch, prefersReducedMotion, cursorX, cursorY]);
 
     if (isTouch) return null;
 
     return (
         <div className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden">
-            <svg ref={svgRef} className="absolute inset-0 w-full h-full pointer-events-none">
-                {/* Lines injected by GSAP */}
-            </svg>
+            {!prefersReducedMotion && (
+                <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                    {Array.from({ length: TRAIL_LENGTH }).map((_, i) => {
+                        const light = 60 + (i / TRAIL_LENGTH) * 30; // 60% -> 90% lightness toward the tail
+                        return (
+                            <line
+                                key={i}
+                                ref={(el) => { lineRefs.current[i] = el; }}
+                                stroke={`hsl(340, 100%, ${light}%)`}
+                                strokeWidth={2}
+                                style={{ opacity: 0 }}
+                            />
+                        );
+                    })}
+                </svg>
+            )}
 
-            {/* Main Cursor - Rendered LAST to be ON TOP */}
+            {/* Main Cursor - rendered last to stay on top of the trail */}
             <motion.div
                 style={{
                     translateX: cursorX,
@@ -155,20 +138,14 @@ const CustomCursor = () => {
                 }}
                 className="fixed top-0 left-0 will-change-transform z-50"
             >
-                {/* Scale animation when switching */}
                 <motion.div
                     initial={false}
-                    animate={{
-                        scale: isHovering ? 1.1 : 1,
-                        rotate: isHovering ? 0 : 0
-                    }}
+                    animate={{ scale: isHovering ? 1.1 : 1 }}
                     transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    // Softened Vibrant Pink: Brighter and less dark than before
                     style={{ filter: "drop-shadow(0 2px 5px rgba(255, 92, 141, 0.4)) brightness(1.2) saturate(2.8) hue-rotate(-5deg)" }}
                 >
                     {isHovering ? (
                         // HOVER STATE: HEART CURSOR (Animated Pulse)
-                        // Heart centered horizontally, bottom tip at cursor position
                         <motion.img
                             src={heartCursor}
                             alt="cursor"
@@ -178,7 +155,6 @@ const CustomCursor = () => {
                         />
                     ) : (
                         // DEFAULT STATE: POINTER CURSOR
-                        // Pointer tip at top-left corner aligns with cursor position
                         <img
                             src={pointerCursor}
                             alt="pointer"
