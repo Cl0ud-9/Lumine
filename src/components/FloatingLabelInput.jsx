@@ -11,12 +11,14 @@ import { useId } from 'react';
  * detection silently never fires (the label then only ever reacts to live focus, and drops
  * back down over the value the moment the field is blurred).
  *
- * The label floats to a small caption inside the input's own top padding rather than
- * crossing/masking the border (the "notch cut into the border" look from the original
- * shadcn demo) - that version needs an opaque patch behind the label to hide the border
- * line, which looks fine on shadcn's flat neutral cards but visibly clashes with this
- * app's soft rounded/glass aesthetic. Floating label inside the field's own padding needs
- * no such patch and works against any background.
+ * The box keeps the app's original compact py-3 height (not padded out to make room for the
+ * label inside it) - the label instead floats up to sit right on the border line, the same
+ * `top-1/2 -translate-y-1/2` -> `top-0` trick as the original shadcn demo (with the label's
+ * own now-smaller height, `translateY(-50%)` centers it exactly on that line). There's a
+ * white background behind the label text so it stays legible crossing the border line, but
+ * as a small rounded-full pill (matching the app's status-badge pills elsewhere) instead of
+ * a sharp-edged rectangle - it blends invisibly into the input's own white background while
+ * resting/centered, and only reads as a distinct little tag once it floats up onto the border.
  *
  * `endAdornment` accepts something like a show/hide-password icon button - pass
  * `hasEndAdornment` too so the input reserves room for it (the existing pr-10 pattern).
@@ -40,11 +42,11 @@ const FloatingLabelInput = ({
         <div className={`group relative ${className}`}>
             <label
                 htmlFor={id}
-                className="font-['Quicksand'] absolute left-4 top-1/2 -translate-y-1/2 cursor-text text-base font-semibold text-gray-400 transition-all duration-150
-                    group-focus-within:top-2.5 group-focus-within:translate-y-0 group-focus-within:cursor-default group-focus-within:text-[11px] group-focus-within:text-pink-500 group-focus-within:pointer-events-none
-                    has-[+input:not(:placeholder-shown)]:top-2.5 has-[+input:not(:placeholder-shown)]:translate-y-0 has-[+input:not(:placeholder-shown)]:cursor-default has-[+input:not(:placeholder-shown)]:text-[11px] has-[+input:not(:placeholder-shown)]:text-pink-500 has-[+input:not(:placeholder-shown)]:pointer-events-none"
+                className="absolute left-3 top-1/2 -translate-y-1/2 cursor-text text-base font-semibold text-gray-400 transition-all duration-150
+                    group-focus-within:top-0 group-focus-within:cursor-default group-focus-within:text-[11px] group-focus-within:text-pink-500 group-focus-within:pointer-events-none
+                    has-[+input:not(:placeholder-shown)]:top-0 has-[+input:not(:placeholder-shown)]:cursor-default has-[+input:not(:placeholder-shown)]:text-[11px] has-[+input:not(:placeholder-shown)]:text-pink-500 has-[+input:not(:placeholder-shown)]:pointer-events-none"
             >
-                {label}
+                <span className="font-['Quicksand'] inline-flex rounded-full bg-white px-2">{label}</span>
             </label>
             <input
                 id={id}
@@ -55,7 +57,7 @@ const FloatingLabelInput = ({
                 name={name}
                 autoComplete={autoComplete}
                 placeholder=" "
-                className={`font-['Quicksand'] w-full px-4 pt-5 pb-2 rounded-xl border-2 border-pink-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition ${hasEndAdornment ? 'pr-10' : ''}`}
+                className={`font-['Quicksand'] w-full px-4 py-3 rounded-xl border-2 border-pink-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition ${hasEndAdornment ? 'pr-10' : ''}`}
                 {...props}
             />
             {endAdornment}

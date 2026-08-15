@@ -18,12 +18,6 @@ const EmailConfirmation = lazy(() => import('./pages/EmailConfirmation'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 
-const RouteFallback = () => (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-mesh">
-        <div className="w-12 h-12 border-4 border-pink-300 border-t-transparent rounded-full animate-spin" />
-    </div>
-);
-
 const ProtectedRoute = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -105,7 +99,7 @@ function App() {
     return (
         <AppProvider>
             <BrowserRouter>
-                <Suspense fallback={<RouteFallback />}>
+                <Suspense fallback={null}>
                     <Routes>
                         <Route path="/auth/verify" element={<Login />} />
                         <Route path="/auth/register" element={<Signup />} />
