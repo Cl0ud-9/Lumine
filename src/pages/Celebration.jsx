@@ -456,16 +456,23 @@ const Celebration = forwardRef((props, ref) => {
                                             scale: [1, 1.05, 1]
                                         }}
                                         transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                                        className="glossy-heart w-24 h-24 rounded-full flex items-center justify-center relative overflow-hidden"
+                                        className="glossy-heart w-24 h-24 rounded-full flex items-center justify-center relative"
                                     >
                                         <span className="material-symbols-outlined text-white text-5xl select-none">favorite</span>
 
-                                        {/* Subtle Glow */}
-                                        <motion.div
-                                            className="absolute inset-0 bg-white/20 mix-blend-overlay"
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: Math.min(heat / 200, 0.3) }}
-                                        />
+                                        {/* Subtle Glow - clipped by its own rounded-full/overflow-hidden wrapper
+                                            instead of living on .glossy-heart itself: animated transform +
+                                            border-radius + overflow-hidden + CSS filter all on one element is a
+                                            known mobile Safari flicker bug (the drop-shadow's clip gets
+                                            re-rasterized every frame the scale animation ticks). Keeping the
+                                            filter-bearing element unclipped fixes the flicker. */}
+                                        <div className="absolute inset-0 rounded-full overflow-hidden pointer-events-none">
+                                            <motion.div
+                                                className="absolute inset-0 bg-white/20 mix-blend-overlay"
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: Math.min(heat / 200, 0.3) }}
+                                            />
+                                        </div>
                                     </motion.div>
                                 </motion.div>
                             </div>
