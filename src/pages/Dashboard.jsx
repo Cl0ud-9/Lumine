@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +8,108 @@ import Toast from '../components/Toast';
 import FloatingLabelInput from '../components/FloatingLabelInput';
 import { logger } from '../lib/logger';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+
+// Pure formatting helpers live at module scope: they don't depend on component state, so
+// they're created once instead of on every render and keep a stable identity when passed
+// down to the (memo-friendly) InviteCard.
+
+// Format date with seconds
+const formatDateTime = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+    });
+};
+
+// Format relative time
+const formatRelativeTime = (dateString) => {
+    if (!dateString) return null;
+    const diffMs = Date.now() - new Date(dateString).getTime();
+
+    // Guard against future timestamps (clock skew) and unparseable dates
+    if (Number.isNaN(diffMs) || diffMs < 0) return 'Just now';
+
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+};
+
+// Format duration in ms to readable string
+const formatDuration = (ms) => {
+    // Guard: zero / negative (clock skew / instant click) / NaN reads as "Instant"
+    if (!(ms > 0)) return 'Instant ⚡';
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d ${hours % 24}h`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+    if (seconds > 0) return `${seconds}s`;
+    return 'Instant ⚡';
+};
+
+// Calculate time to yes
+const calculateTimeToYes = (firstOpened, firstYes, usedAt) => {
+    const end = firstYes || usedAt;
+    if (!firstOpened || !end) return null;
+    return formatDuration(new Date(end) - new Date(firstOpened));
+};
+
+// crypto.randomUUID only exists in secure contexts (https / localhost); fall back to
+// getRandomValues so creating a link still works when the dashboard is opened over plain
+// http on a LAN address during testing.
+const generateToken = () => {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+};
+
+// navigator.clipboard is undefined on insecure origins and can reject when the document
+// isn't focused or permission is denied; document.execCommand('copy') still works there.
+const copyTextToClipboard = async (text) => {
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            return true;
+        }
+    } catch {
+        // fall through to the legacy path
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        return document.execCommand('copy');
+    } catch {
+        return false;
+    } finally {
+        document.body.removeChild(textarea);
+    }
+};
+
+// PostgREST answers 404 / PGRST202 (and Postgres 42883) when an RPC isn't defined yet.
+const isMissingFunctionError = (error) =>
+    error?.code === 'PGRST202' || error?.code === '42883' || error?.status === 404;
 
 const Dashboard = () => {
     usePageTitle('Dashboard');
@@ -26,9 +128,26 @@ const Dashboard = () => {
     const channelRef = useRef(null);
     const userIdRef = useRef(null);
     const progressTimerRef = useRef(null);
+    const refetchTimerRef = useRef(null);
+    // Monotonic request ids: responses can arrive out of order (realtime burst, tab refocus,
+    // a post-create refetch), and an older response landing last would overwrite fresher data.
+    const requestSeqRef = useRef(0);
+    const appliedSeqRef = useRef(0);
+
+    const showToast = useCallback((message) => setToast({ show: true, message }), []);
+    const closeToast = useCallback(() => setToast({ show: false, message: '' }), []);
+    const closeDeleteModal = useCallback(() => setDeleteModal({ show: false, id: null, name: '' }), []);
+    const closeCreateForm = useCallback(() => setShowCreateForm(false), []);
+    const closeDeleteAccountModal = useCallback(() => setDeleteAccountModal(false), []);
+
+    useEscapeKey(showCreateForm, closeCreateForm);
+    useEscapeKey(deleteModal.show, closeDeleteModal);
+    useEscapeKey(deleteAccountModal, closeDeleteAccountModal);
 
     // Stable fetch function that doesn't cause re-subscriptions
     const fetchInvites = useCallback(async (showLoading = true) => {
+        const seq = ++requestSeqRef.current;
+
         if (showLoading) {
             setLoading(true);
             setLoadProgress(0);
@@ -44,60 +163,90 @@ const Dashboard = () => {
                 });
             }, 150);
         }
-        const { data: { user } } = await supabase.auth.getUser();
 
-        if (!user) {
-            navigate('/auth/verify');
-            return;
-        }
+        try {
+            // getSession reads the locally stored (auto-refreshed) session; getUser is a
+            // network round trip to the auth server, which doubled the cost of every refresh.
+            // Row access is enforced by RLS regardless.
+            const { data: { session } } = await supabase.auth.getSession();
+            const user = session?.user;
 
-        userIdRef.current = user.id;
+            if (!user) {
+                navigate('/auth/verify', { replace: true });
+                return;
+            }
 
-        const { data, error } = await supabase
-            .from('invites')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
+            userIdRef.current = user.id;
 
-        if (error) {
+            const { data, error } = await supabase
+                .from('invites')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                logger.error('Error fetching invites:', error);
+                if (showLoading) showToast('Could not load your URLs. Please refresh.');
+            } else if (seq > appliedSeqRef.current) {
+                appliedSeqRef.current = seq;
+                setInvites(data || []);
+            }
+        } catch (error) {
+            // A network failure used to throw out of here and leave the loading screen up forever.
             logger.error('Error fetching invites:', error);
-        } else {
-            setInvites(data || []);
+            if (showLoading) showToast('Could not load your URLs. Please refresh.');
+        } finally {
+            if (showLoading) {
+                // Stop the ticker, snap to 100%, then let the dashboard appear
+                clearInterval(progressTimerRef.current);
+                setLoadProgress(100);
+                setTimeout(() => setLoading(false), 250);
+            }
         }
-        if (showLoading) {
-            // Stop the ticker, snap to 100%, then let the dashboard appear
-            clearInterval(progressTimerRef.current);
-            setLoadProgress(100);
-            setTimeout(() => setLoading(false), 250);
-        }
-    }, [navigate]);
+    }, [navigate, showToast]);
 
     useEffect(() => {
+        let cancelled = false;
+
         // Initial fetch
         fetchInvites();
 
+        // Coalesce bursts of realtime events (a visit + a yes + a no landing together) into
+        // one refetch instead of one full table read per event.
+        const scheduleRefetch = () => {
+            clearTimeout(refetchTimerRef.current);
+            refetchTimerRef.current = setTimeout(() => fetchInvites(false), 300);
+        };
+
         // Set up Supabase Realtime subscription
         const setupRealtime = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const user = session?.user;
+                // Re-check after the await: if the page unmounted meanwhile, creating the
+                // channel now would leak a subscription nobody ever removes.
+                if (!user || cancelled) return;
 
-            channelRef.current = supabase
-                .channel('dashboard-invites')
-                .on(
-                    'postgres_changes',
-                    {
-                        event: '*',
-                        schema: 'public',
-                        table: 'invites',
-                        filter: `user_id=eq.${user.id}`
-                    },
-                    (payload) => {
-                        logger.log('Realtime update:', payload.eventType);
-                        // Re-fetch all invites on any change for consistency
-                        fetchInvites(false);
-                    }
-                )
-                .subscribe();
+                channelRef.current = supabase
+                    .channel('dashboard-invites')
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: '*',
+                            schema: 'public',
+                            table: 'invites',
+                            filter: `user_id=eq.${user.id}`
+                        },
+                        (payload) => {
+                            logger.log('Realtime update:', payload.eventType);
+                            // Re-fetch all invites on any change for consistency
+                            scheduleRefetch();
+                        }
+                    )
+                    .subscribe();
+            } catch (error) {
+                logger.error('Realtime setup failed:', error);
+            }
         };
 
         setupRealtime();
@@ -111,10 +260,13 @@ const Dashboard = () => {
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
+            cancelled = true;
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             clearInterval(progressTimerRef.current);
+            clearTimeout(refetchTimerRef.current);
             if (channelRef.current) {
                 supabase.removeChannel(channelRef.current);
+                channelRef.current = null;
             }
         };
     }, [fetchInvites]);
@@ -132,189 +284,168 @@ const Dashboard = () => {
         };
     }, [showCreateForm, showHelpModal, deleteModal.show, deleteAccountModal]);
 
-
-
     const createInvite = async (e) => {
         e.preventDefault();
+        if (creating) return;
+
+        // `required` accepts "   "; a whitespace-only name would make an unlabeled card.
+        const name = recipientName.trim();
+        if (!name) {
+            showToast('Please enter a name');
+            return;
+        }
+
         setCreating(true);
 
-        const { data: { user } } = await supabase.auth.getUser();
-        const token = crypto.randomUUID();
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const user = session?.user;
 
-        const { error } = await supabase
-            .from('invites')
-            .insert({
-                token,
-                user_id: user.id,
-                recipient_name: recipientName,
-                total_visits: 0,
-                used: false
-            });
+            if (!user) {
+                navigate('/auth/verify', { replace: true });
+                return;
+            }
 
-        if (error) {
+            const { error } = await supabase
+                .from('invites')
+                .insert({
+                    token: generateToken(),
+                    user_id: user.id,
+                    recipient_name: name,
+                    total_visits: 0,
+                    used: false
+                });
+
+            if (error) {
+                logger.error('Error creating invite:', error);
+                showToast('Failed to create URL');
+            } else {
+                setRecipientName('');
+                setShowCreateForm(false);
+                fetchInvites();
+                showToast('URL created successfully!');
+            }
+        } catch (error) {
             logger.error('Error creating invite:', error);
-            setToast({ show: true, message: 'Failed to create URL' });
-        } else {
-            setRecipientName('');
-            setShowCreateForm(false);
-            fetchInvites();
-            setToast({ show: true, message: 'URL created successfully!' });
+            showToast('Failed to create URL');
+        } finally {
+            setCreating(false);
         }
-        setCreating(false);
     };
 
-    const copyUrl = (token) => {
+    const copyUrl = useCallback(async (token) => {
         const url = `${window.location.origin}/?token=${token}`;
         const message = `There’s something I’ve been wanting to tell you… \n${url}`;
-        navigator.clipboard.writeText(message);
-        setToast({ show: true, message: 'URL and message copied!' });
-    };
+        const copied = await copyTextToClipboard(message);
+        showToast(copied ? 'URL and message copied!' : 'Could not copy automatically - please copy the link manually');
+    }, [showToast]);
 
-    const deleteInvite = (id, name) => {
+    const deleteInvite = useCallback((id, name) => {
         setDeleteModal({ show: true, id, name });
-    };
+    }, []);
 
     const confirmDelete = async () => {
         const id = deleteModal.id;
-        setDeleteModal({ show: false, id: null, name: '' }); // Close immediately for responsiveness
+        closeDeleteModal(); // Close immediately for responsiveness
 
-        const { error } = await supabase
-            .from('invites')
-            .delete()
-            .eq('id', id);
+        try {
+            const { error } = await supabase
+                .from('invites')
+                .delete()
+                .eq('id', id);
 
-        if (error) {
-            logger.error('Error deleting invite:', error);
-            setToast({ show: true, message: 'Failed to delete URL' });
-        } else {
+            if (error) throw error;
+
             fetchInvites();
-            setToast({ show: true, message: 'URL deleted successfully' });
+            showToast('URL deleted successfully');
+        } catch (error) {
+            logger.error('Error deleting invite:', error);
+            showToast('Failed to delete URL');
         }
     };
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
-        navigate('/auth/verify');
+        try {
+            await supabase.auth.signOut();
+        } catch (error) {
+            logger.error('Error signing out:', error);
+        }
+        navigate('/auth/verify', { replace: true });
     };
 
     const handleDeleteAccount = async () => {
         setDeleteAccountModal(false);
 
-        // 1. Delete all user's invites
-        const { error: deleteError } = await supabase
-            .from('invites')
-            .delete()
-            .eq('user_id', userIdRef.current);
+        try {
+            // Preferred: the delete_my_account() SQL function (see supabase_schema.sql) removes
+            // the auth user itself - and, through the FK cascade, all of its invites. The
+            // browser can't delete an auth user directly, so before this only the invites were
+            // wiped and the account kept existing despite the "delete your account" promise.
+            const { error: rpcError } = await supabase.rpc('delete_my_account');
 
-        if (deleteError) {
-            logger.error('Error deleting data:', deleteError);
-            setToast({ show: true, message: 'Failed to delete data. Please try again.' });
+            if (rpcError) {
+                if (!isMissingFunctionError(rpcError)) throw rpcError;
+
+                // Database hasn't been upgraded with that function yet: fall back to removing
+                // the user's data so the button still does something useful.
+                logger.warn('delete_my_account() not found; deleting invites only.');
+                const { error: deleteError } = await supabase
+                    .from('invites')
+                    .delete()
+                    .eq('user_id', userIdRef.current);
+
+                if (deleteError) throw deleteError;
+            }
+        } catch (error) {
+            logger.error('Error deleting account:', error);
+            showToast('Failed to delete account. Please try again.');
             return;
         }
 
-        // 2. Sign out
-        await supabase.auth.signOut();
-        navigate('/auth/verify');
+        try {
+            // 'local' skips the server call, which would 401 now that the user no longer exists.
+            await supabase.auth.signOut({ scope: 'local' });
+        } catch (error) {
+            logger.error('Error signing out:', error);
+        }
+        navigate('/auth/verify', { replace: true });
     };
 
-    // Format date with seconds
-    const formatDateTime = (dateString) => {
-        if (!dateString) return null;
-        const date = new Date(dateString);
-        return date.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-        });
-    };
+    // Derived data - recomputed only when the invites actually change, not on every render
+    // (each modal toggle / toast / progress tick used to re-run all of these filters).
+    const { stats, waitingInvites, pendingInvites, yesInvites } = useMemo(() => {
+        const waiting = [];
+        const pending = [];
+        const yes = [];
+        for (const invite of invites) {
+            if (invite.used) yes.push(invite);
+            else if (invite.first_opened_at) pending.push(invite);
+            else waiting.push(invite);
+        }
 
-    // Format relative time
-    const formatRelativeTime = (dateString) => {
-        if (!dateString) return null;
-        const now = new Date();
-        const date = new Date(dateString);
-        const diffMs = now - date;
+        // Calculate duration for each invite, dropping invalid (negative / NaN) values
+        const durations = yes
+            .filter(i => i.first_opened_at && (i.first_yes_at || i.used_at))
+            .map(i => new Date(i.first_yes_at || i.used_at) - new Date(i.first_opened_at))
+            .filter(d => d >= 0);
 
-        // Guard against future timestamps (clock skew)
-        if (diffMs < 0) return 'Just now';
+        let fastestYes = '-';
+        if (yes.some(i => i.first_opened_at && (i.first_yes_at || i.used_at))) {
+            fastestYes = durations.length === 0 ? 'Instant ⚡' : formatDuration(Math.min(...durations));
+        }
 
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMins / 60);
-        const diffDays = Math.floor(diffHours / 24);
-
-        if (diffMins < 1) return 'Just now';
-        if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-        if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-        return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-    };
-
-    // Calculate time to yes
-    const calculateTimeToYes = (firstOpened, firstYes, usedAt) => {
-        const end = firstYes || usedAt;
-        if (!firstOpened || !end) return null;
-        const diff = new Date(end) - new Date(firstOpened);
-
-        // Guard: if diff is negative or zero (clock skew / instant click), show "Instant"
-        if (diff <= 0) return 'Instant ⚡';
-
-        const seconds = Math.floor(diff / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
-        const days = Math.floor(hours / 24);
-
-        if (days > 0) return `${days}d ${hours % 24}h`;
-        if (hours > 0) return `${hours}h ${minutes % 60}m`;
-        if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-        if (seconds > 0) return `${seconds}s`;
-        return 'Instant ⚡';
-    };
-
-    // Format duration in ms to readable string
-    const formatDuration = (ms) => {
-        if (ms <= 0) return 'Instant ⚡';
-        const seconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
-        const days = Math.floor(hours / 24);
-
-        if (days > 0) return `${days}d ${hours % 24}h`;
-        if (hours > 0) return `${hours}h ${minutes % 60}m`;
-        if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-        if (seconds > 0) return `${seconds}s`;
-        return 'Instant ⚡';
-    };
-
-    // Calculate stats
-    const stats = {
-        total: invites.length,
-        yesCount: invites.filter(i => i.used).length,
-        successRate: invites.length > 0 ? Math.round((invites.filter(i => i.used).length / invites.length) * 100) : 0,
-        fastestYes: (() => {
-            const yesInvites = invites.filter(i => i.used && i.first_opened_at && (i.first_yes_at || i.used_at));
-            if (yesInvites.length === 0) return '-';
-
-            // Calculate duration for each invite, filtering out invalid (negative) values
-            const durations = yesInvites
-                .map(i => {
-                    const endTime = new Date(i.first_yes_at || i.used_at);
-                    const startTime = new Date(i.first_opened_at);
-                    return endTime - startTime;
-                })
-                .filter(d => d >= 0); // Remove any negative durations (clock skew)
-
-            if (durations.length === 0) return 'Instant ⚡';
-
-            const minDuration = Math.min(...durations);
-            return formatDuration(minDuration);
-        })()
-    };
-
-    // Group invites by status
-    const waitingInvites = invites.filter(i => !i.first_opened_at);
-    const yesInvites = invites.filter(i => i.used);
+        return {
+            stats: {
+                total: invites.length,
+                yesCount: yes.length,
+                successRate: invites.length > 0 ? Math.round((yes.length / invites.length) * 100) : 0,
+                fastestYes
+            },
+            waitingInvites: waiting,
+            pendingInvites: pending,
+            yesInvites: yes
+        };
+    }, [invites]);
 
     if (loading) {
         return (
@@ -367,7 +498,7 @@ const Dashboard = () => {
             <Toast
                 message={toast.message}
                 isVisible={toast.show}
-                onClose={() => setToast({ show: false, message: '' })}
+                onClose={closeToast}
             />
 
             <div className="max-w-6xl mx-auto relative z-10">
@@ -473,14 +604,17 @@ const Dashboard = () => {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                            onClick={() => setShowCreateForm(false)}
+                            onClick={closeCreateForm}
                         >
                             <motion.div
                                 initial={{ scale: 0.9, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 exit={{ scale: 0.9, opacity: 0 }}
                                 onClick={(e) => e.stopPropagation()}
-                                className="bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 rounded-[3rem] p-8 max-w-md w-full shadow-2xl border-4 border-white"
+                                role="dialog"
+                                aria-modal="true"
+                                aria-label="Create new proposal URL"
+                                className="bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 rounded-[3rem] p-8 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl border-4 border-white"
                             >
                                 <h2 className="font-['Fredoka'] text-3xl font-bold mb-6 text-[#ff4d7d] flex items-center gap-2">
                                     Create New URL
@@ -490,6 +624,10 @@ const Dashboard = () => {
                                     <FloatingLabelInput
                                         label="Recipient Name"
                                         type="text"
+                                        name="recipient-name"
+                                        autoComplete="off"
+                                        autoFocus
+                                        maxLength={50}
                                         value={recipientName}
                                         onChange={(e) => setRecipientName(e.target.value)}
                                         required
@@ -498,7 +636,7 @@ const Dashboard = () => {
                                     <div className="flex gap-3">
                                         <button
                                             type="button"
-                                            onClick={() => setShowCreateForm(false)}
+                                            onClick={closeCreateForm}
                                             className="font-['Quicksand'] flex-1 px-4 py-4 border-2 border-gray-300 rounded-2xl hover:bg-gray-50 transition font-semibold"
                                         >
                                             Cancel
@@ -525,14 +663,17 @@ const Dashboard = () => {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                            onClick={() => setDeleteModal({ show: false, id: null, name: '' })}
+                            onClick={closeDeleteModal}
                         >
                             <motion.div
                                 initial={{ scale: 0.95, opacity: 0, rotate: -2 }}
                                 animate={{ scale: 1, opacity: 1, rotate: 0 }}
                                 exit={{ scale: 0.95, opacity: 0 }}
                                 onClick={(e) => e.stopPropagation()}
-                                className="bg-white/90 backdrop-blur-md rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border-4 border-white text-center relative overflow-hidden"
+                                role="alertdialog"
+                                aria-modal="true"
+                                aria-label="Confirm deleting this URL"
+                                className="bg-white/90 backdrop-blur-md rounded-[2.5rem] p-8 max-w-sm w-full max-h-[90vh] overflow-y-auto shadow-2xl border-4 border-white text-center relative"
                             >
                                 <div className="mb-6 flex justify-center">
                                     <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
@@ -554,7 +695,7 @@ const Dashboard = () => {
                                     <motion.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
-                                        onClick={() => setDeleteModal({ show: false, id: null, name: '' })}
+                                        onClick={closeDeleteModal}
                                         className="flex-1 py-3 rounded-2xl font-['Quicksand'] font-bold text-gray-600 bg-gray-100 border-2 border-transparent hover:bg-white hover:border-pink-200 transition-all shadow-sm"
                                     >
                                         Nah, keep it
@@ -581,14 +722,17 @@ const Dashboard = () => {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                            onClick={() => setDeleteAccountModal(false)}
+                            onClick={closeDeleteAccountModal}
                         >
                             <motion.div
                                 initial={{ scale: 0.95, opacity: 0, rotate: 2 }}
                                 animate={{ scale: 1, opacity: 1, rotate: 0 }}
                                 exit={{ scale: 0.95, opacity: 0 }}
                                 onClick={(e) => e.stopPropagation()}
-                                className="bg-white/90 backdrop-blur-md rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border-4 border-red-50 text-center relative overflow-hidden"
+                                role="alertdialog"
+                                aria-modal="true"
+                                aria-label="Confirm deleting your account"
+                                className="bg-white/90 backdrop-blur-md rounded-[2.5rem] p-8 max-w-sm w-full max-h-[90vh] overflow-y-auto shadow-2xl border-4 border-red-50 text-center relative"
                             >
                                 <div className="mb-6 flex justify-center">
                                     <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
@@ -610,7 +754,7 @@ const Dashboard = () => {
                                     <motion.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
-                                        onClick={() => setDeleteAccountModal(false)}
+                                        onClick={closeDeleteAccountModal}
                                         className="flex-1 py-3 rounded-2xl font-['Quicksand'] font-bold text-gray-600 bg-gray-100 border-2 border-transparent hover:bg-white hover:border-red-200 transition-all shadow-sm"
                                     >
                                         I{"'"}ll stay
@@ -662,13 +806,13 @@ const Dashboard = () => {
                     )}
 
                     {/* Pending Section */}
-                    {invites.filter(i => i.first_opened_at && !i.used).length > 0 && (
+                    {pendingInvites.length > 0 && (
                         <div>
                             <div className="flex items-center gap-3 mb-5">
                                 <div className="h-1 w-12 bg-gradient-to-r from-yellow-400 to-transparent rounded-full"></div>
                                 <h2 className="font-['Fredoka'] text-2xl font-bold text-gray-700 flex items-center gap-2">
                                     <span className="material-symbols-outlined text-2xl text-yellow-600">visibility</span> <span>Pending</span>
-                                    <span className="text-sm font-normal bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full">{invites.filter(i => i.first_opened_at && !i.used).length}</span>
+                                    <span className="text-sm font-normal bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full">{pendingInvites.length}</span>
                                 </h2>
                                 <div className="flex-1 h-1 bg-gradient-to-r from-transparent to-yellow-200 rounded-full"></div>
                             </div>
@@ -677,7 +821,7 @@ const Dashboard = () => {
                                 visit history grew its row height, and the sibling card - unchanged, but
                                 stretched - grew an empty gap to match, which read as it "auto-expanding" too. */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                                {invites.filter(i => i.first_opened_at && !i.used).map((invite) => (
+                                {pendingInvites.map((invite) => (
                                     <InviteCard
                                         key={invite.id}
                                         invite={invite}
@@ -785,7 +929,9 @@ const IconBadge = ({ icon, color = 'gray', large = false }) => (
 );
 
 // Invite Card Component
-const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTime, calculateTimeToYes }) => {
+// memo: the card's handlers are stable, so opening a modal or showing a toast on the
+// dashboard no longer re-renders every card (and their motion animations).
+const InviteCard = memo(({ invite, onCopy, onDelete, formatDateTime, formatRelativeTime, calculateTimeToYes }) => {
     const isPending = invite.first_opened_at && !invite.used;
     const isYes = invite.used;
     const [showVisitDetails, setShowVisitDetails] = useState(false);
@@ -1010,8 +1156,8 @@ const InviteCard = ({ invite, onCopy, onDelete, formatDateTime, formatRelativeTi
             </button>
         </motion.div>
     );
-};
+});
 
-// Unused TimelineItem removed
+InviteCard.displayName = 'InviteCard';
 
 export default Dashboard;

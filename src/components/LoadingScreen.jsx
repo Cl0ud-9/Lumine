@@ -1,14 +1,22 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 const LoadingScreen = ({ onComplete }) => {
+    // Keep the latest callback in a ref so the 4.5s timer starts once on mount. With onComplete
+    // in the effect deps, a parent re-render that passed a fresh function would restart the
+    // timer and silently stretch the intro.
+    const onCompleteRef = useRef(onComplete);
+    useEffect(() => {
+        onCompleteRef.current = onComplete;
+    }, [onComplete]);
+
     useEffect(() => {
         const timer = setTimeout(() => {
-            onComplete();
+            onCompleteRef.current();
         }, 4500); // 4s animation + 0.5s buffer
 
         return () => clearTimeout(timer);
-    }, [onComplete]);
+    }, []);
 
     return (
         <motion.div

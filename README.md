@@ -122,6 +122,15 @@ You can find both values in your [Supabase Dashboard](https://supabase.com/dashb
 
 Run the contents of `supabase_schema.sql` in your Supabase SQL Editor to set up the necessary tables and policies.
 
+This also creates the `delete_my_account()` function that powers **Delete Forever** on the
+dashboard (it removes the auth user itself, not just their links) and adds `invites` to the
+`supabase_realtime` publication so new visits and "Yes" answers show up live.
+
+**Already have a project set up?** Re-run the whole file's function sections - every function uses
+`create or replace`, so it's safe - or at minimum run the `delete_my_account` function and the
+`REALTIME` block at the bottom of `supabase_schema.sql`. Until `delete_my_account()` exists, the
+dashboard falls back to deleting only the user's links before signing them out.
+
 ---
 
 ### 5️⃣ Configure Email (Auth SMTP)

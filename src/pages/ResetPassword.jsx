@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import CustomCursor from '../components/CustomCursor';
 import FloatingLabelInput from '../components/FloatingLabelInput';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { isStrongPassword, PASSWORD_REQUIREMENTS_MESSAGE } from '../lib/validation';
 
 const ResetPassword = () => {
     usePageTitle('Reset Password');
@@ -14,35 +15,75 @@ const ResetPassword = () => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    // null = still checking, true/false = whether the recovery link produced a session.
+    // Opening this page directly (or with an expired/used link) has no session, and the
+    // updateUser call would then fail with a cryptic "Auth session missing!" only after the
+    // person had typed a new password.
+    const [hasRecoverySession, setHasRecoverySession] = useState(null);
     const navigate = useNavigate();
+
+    useEffect(() => {
+        let cancelled = false;
+
+        // The recovery token in the URL is exchanged asynchronously, so a session can show up
+        // slightly after mount - listen for it instead of trusting a single getSession() read.
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (!cancelled && (event === 'PASSWORD_RECOVERY' || session)) {
+                setHasRecoverySession(true);
+            }
+        });
+
+        supabase.auth.getSession()
+            .then(({ data: { session } }) => {
+                if (!cancelled && session) setHasRecoverySession(true);
+            })
+            .catch(() => { /* handled by the timeout below */ });
+
+        const timer = setTimeout(() => {
+            if (!cancelled) setHasRecoverySession(prev => prev ?? false);
+        }, 2500);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+            subscription.unsubscribe();
+        };
+    }, []);
 
     const handleResetPassword = async (e) => {
         e.preventDefault();
-        setLoading(true);
+        if (loading) return;
         setError('');
 
         if (password !== confirmPassword) {
             setError('Passwords do not match');
-            setLoading(false);
             return;
         }
 
-        if (password.length < 6) {
-            setError('Password must be at least 6 characters');
-            setLoading(false);
+        if (!isStrongPassword(password)) {
+            setError(PASSWORD_REQUIREMENTS_MESSAGE);
             return;
         }
 
-        const { error: updateError } = await supabase.auth.updateUser({
-            password: password
-        });
+        setLoading(true);
 
-        if (updateError) {
-            setError(updateError.message);
+        try {
+            const { error: updateError } = await supabase.auth.updateUser({
+                password: password
+            });
+
+            if (updateError) {
+                setError(updateError.message);
+                setLoading(false);
+            } else {
+                // The recovery link logged this browser in; end that session so the person
+                // signs in again with the new password instead of being left half-authenticated.
+                await supabase.auth.signOut();
+                navigate('/auth/verify', { replace: true });
+            }
+        } catch {
+            setError('Something went wrong. Please check your connection and try again.');
             setLoading(false);
-        } else {
-            // Password updated successfully, redirect to login
-            navigate('/auth/verify');
         }
     };
 
@@ -74,11 +115,20 @@ const ResetPassword = () => {
                         <p className="font-['Quicksand'] text-gray-600 font-semibold">Enter your new password</p>
                     </div>
 
+                    {hasRecoverySession === false && (
+                        <div role="alert" className="font-['Quicksand'] bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold mb-6">
+                            This reset link is invalid or has expired.{' '}
+                            <Link to="/auth/forgot-password" className="underline font-bold">Request a new one</Link>
+                        </div>
+                    )}
+
                     <form onSubmit={handleResetPassword} className="space-y-6">
                         <div>
                             <FloatingLabelInput
                                 label="New Password"
                                 type={showPassword ? "text" : "password"}
+                                name="new-password"
+                                autoComplete="new-password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
@@ -102,6 +152,8 @@ const ResetPassword = () => {
                             <FloatingLabelInput
                                 label="Confirm New Password"
                                 type={showConfirmPassword ? "text" : "password"}
+                                name="confirm-new-password"
+                                autoComplete="new-password"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 required
@@ -122,14 +174,14 @@ const ResetPassword = () => {
                         </div>
 
                         {error && (
-                            <div className="font-['Quicksand'] bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold">
+                            <div role="alert" className="font-['Quicksand'] bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold">
                                 {error}
                             </div>
                         )}
 
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || hasRecoverySession === false}
                             className="bubbly-yes w-full py-4 rounded-[2rem] text-xl font-['Fredoka'] text-white uppercase tracking-wider transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                         >
                             <span className="flex items-center justify-center gap-2">

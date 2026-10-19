@@ -1,5 +1,5 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { supabase } from './lib/supabaseClient';
 import LoadingScreen from './components/LoadingScreen';
@@ -23,20 +23,37 @@ const ProtectedRoute = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null);
-            setLoading(false);
-        });
+        let cancelled = false;
+
+        supabase.auth.getSession()
+            .then(({ data: { session } }) => {
+                if (!cancelled) setUser(session?.user ?? null);
+            })
+            .catch(() => {
+                // Can't verify a session (storage/network failure) - treat as signed out
+                // instead of leaving the route stuck on the loading state forever.
+                if (!cancelled) setUser(null);
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            cancelled = true;
+            subscription.unsubscribe();
+        };
     }, []);
 
     if (loading) {
-        return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-mesh font-['Quicksand'] font-semibold text-gray-600" role="status">
+                Loading...
+            </div>
+        );
     }
 
     if (!user) {
@@ -58,16 +75,34 @@ const ProposalFlow = () => {
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    const triggerCircularTransition = (callback) => {
-        setShowCircle(true);
-        setTimeout(() => {
-            callback();
+    // Pending transition timers live in refs so they can be cancelled on unmount (otherwise a
+    // route change mid-transition would call setState on an unmounted component). Only a
+    // transition whose step change is still in flight blocks a new one - the later "hide the
+    // circle" timer of a finished transition must not, or a fast "Yes" right after the intro
+    // would be silently dropped.
+    const stepTimer = useRef(null);
+    const hideTimer = useRef(null);
 
-            setTimeout(() => {
-                setShowCircle(false);
-            }, 2000);
+    useEffect(() => () => {
+        clearTimeout(stepTimer.current);
+        clearTimeout(hideTimer.current);
+    }, []);
+
+    const triggerCircularTransition = useCallback((callback) => {
+        if (stepTimer.current) return;
+        clearTimeout(hideTimer.current);
+        setShowCircle(true);
+        stepTimer.current = setTimeout(() => {
+            stepTimer.current = null;
+            callback();
+            hideTimer.current = setTimeout(() => setShowCircle(false), 2000);
         }, 1200);
-    };
+    }, []);
+
+    const handleIntroComplete = useCallback(
+        () => triggerCircularTransition(() => setStep('proposal')),
+        [triggerCircularTransition, setStep]
+    );
 
     return (
         <div className="min-h-screen font-inter selection:bg-pink-200 selection:text-pink-900 overflow-hidden relative cursor-none">
@@ -81,7 +116,7 @@ const ProposalFlow = () => {
 
                 <AnimatePresence mode='wait'>
                     {currentStep === 'intro' && (
-                        <LoadingScreen key="loading" onComplete={() => triggerCircularTransition(() => setStep('proposal'))} />
+                        <LoadingScreen key="loading" onComplete={handleIntroComplete} />
                     )}
                     {currentStep === 'proposal' && (
                         <Proposal key="proposal" onTransition={triggerCircularTransition} />
@@ -93,6 +128,13 @@ const ProposalFlow = () => {
             </div>
         </div>
     );
+};
+
+// Unknown paths used to render a blank page. Send them to the proposal root, keeping the
+// query string so a mistyped path that still carries ?token=... still opens the proposal.
+const NotFoundRedirect = () => {
+    const { search } = useLocation();
+    return <Navigate to={{ pathname: '/', search }} replace />;
 };
 
 function App() {
@@ -112,6 +154,7 @@ function App() {
                             </ProtectedRoute>
                         } />
                         <Route path="/" element={<ProposalFlow />} />
+                        <Route path="*" element={<NotFoundRedirect />} />
                     </Routes>
                 </Suspense>
             </BrowserRouter>

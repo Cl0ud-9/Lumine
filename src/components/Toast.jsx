@@ -1,13 +1,20 @@
-import React from 'react';
+import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Toast = ({ message, isVisible, onClose }) => {
-    React.useEffect(() => {
-        if (isVisible) {
-            const timer = setTimeout(onClose, 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [isVisible, onClose]);
+    // Callers usually pass an inline arrow for onClose, which is a new function every render.
+    // Keeping it in a ref means a parent re-render (e.g. a realtime refresh landing while the
+    // toast is up) doesn't restart the 3s auto-dismiss timer.
+    const onCloseRef = useRef(onClose);
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    }, [onClose]);
+
+    useEffect(() => {
+        if (!isVisible) return undefined;
+        const timer = setTimeout(() => onCloseRef.current(), 3000);
+        return () => clearTimeout(timer);
+    }, [isVisible, message]);
 
     return (
         <AnimatePresence>
@@ -16,10 +23,12 @@ const Toast = ({ message, isVisible, onClose }) => {
                     initial={{ opacity: 0, y: 50 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 50 }}
-                    className="fixed bottom-8 right-8 z-50"
+                    role="status"
+                    aria-live="polite"
+                    className="fixed bottom-4 right-4 left-4 sm:left-auto sm:bottom-8 sm:right-8 z-[70] pointer-events-none"
                 >
                     <div className="bg-gradient-to-r from-pink-500 to-purple-500 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3">
-                        <span className="text-2xl">✓</span>
+                        <span className="text-2xl" aria-hidden="true">✓</span>
                         <span className="font-semibold">{message}</span>
                     </div>
                 </motion.div>

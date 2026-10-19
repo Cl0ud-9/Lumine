@@ -48,7 +48,12 @@ using (auth.uid() = user_id);
 
 
 -- SECURE ANALYTICS FUNCTIONS (RPCs)
--- These allow updating analytics without exposing public table access
+-- These allow updating analytics without exposing public table access.
+-- They run as the function owner (security definer), so each one pins `search_path`:
+-- without it a caller could shadow `invites` / `now()` with their own objects in a schema
+-- earlier on their search path and have this code run against them with elevated rights.
+-- All of these use `create or replace`, so re-running this section on an existing project
+-- is safe and is how to pick up changes.
 
 -- 1. Secure function to track visits (handles timestamps + counter)
 create or replace function track_visit(url_token text)
@@ -61,7 +66,7 @@ begin
     first_opened_at = coalesce(first_opened_at, now())
   where token = url_token;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- 2. Secure function to track "Yes" response
 create or replace function track_yes(url_token text)
@@ -76,7 +81,7 @@ begin
     first_opened_at = coalesce(first_opened_at, now()) -- Fix race condition: ensure opened_at exists
   where token = url_token;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- 3. Secure function to track "No" clicks
 create or replace function track_no(url_token text)
@@ -86,7 +91,7 @@ begin
   set no_clicks = no_clicks + 1
   where token = url_token;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- 4. Secure function to check if invite exists (returns bool)
 create or replace function check_invite_exists(url_token text)
@@ -94,4 +99,38 @@ returns boolean as $$
 begin
   return exists(select 1 from invites where token = url_token);
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
+
+
+-- 5. Let a signed-in user delete their own account (used by the dashboard's "Delete Forever").
+-- The browser cannot delete an auth user directly; this removes the caller's row from
+-- auth.users, and the `on delete cascade` on invites.user_id removes all of their invites.
+-- Until this function exists the dashboard falls back to only deleting the user's invites.
+create or replace function delete_my_account()
+returns void as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  delete from auth.users where id = auth.uid();
+end;
+$$ language plpgsql security definer set search_path = public, auth;
+
+revoke all on function delete_my_account() from public, anon;
+grant execute on function delete_my_account() to authenticated;
+
+
+-- REALTIME
+-- The dashboard subscribes to changes on `invites` so new visits / "Yes" answers show up
+-- without a refresh. Postgres changes are only broadcast for tables in this publication.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'invites'
+  ) then
+    alter publication supabase_realtime add table public.invites;
+  end if;
+end
+$$;

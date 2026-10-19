@@ -28,6 +28,24 @@ const NO_PHRASES = [
     "This isn’t over.", "Fine. I see how it is...😔", "Please....🥺🥺", "Please....🥺🥺🥺"
 ];
 
+// Supabase RPCs resolve with { error } instead of throwing, so a plain try/catch never sees
+// a failed write. "Yes" is the one event the sender is waiting on, so give it a couple of
+// retries before giving up rather than losing it to a single dropped request.
+const trackYesWithRetry = async (token, attempts = 3) => {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        try {
+            const { error } = await supabase.rpc('track_yes', { url_token: token });
+            if (!error) return;
+            logger.error('Error tracking yes:', error);
+        } catch (error) {
+            logger.error('Error tracking yes:', error);
+        }
+        if (attempt < attempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+    }
+};
+
 const PROPOSAL_SUBTITLES = [
     "Because my world feels brighter with you in it!",
     "You're the missing piece to my puzzle.",
@@ -129,12 +147,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         setIsSending(true);
 
         // Silently save to database in background via secure RPC
-        if (token) {
-            supabase.rpc('track_yes', { url_token: token })
-                .then(({ error }) => {
-                    if (error) logger.error('Error tracking yes:', error);
-                });
-        }
+        if (token) trackYesWithRetry(token);
 
         // Immediately trigger the circular transition
         onTransition(() => setStep('celebration'));
@@ -167,8 +180,8 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         let found = false;
 
         for (let i = 0; i < searchAttempts; i++) {
-            const x = Math.random() * (cardRect.width - buttonWidth - padding * 2) + padding;
-            const y = Math.random() * (cardRect.height - buttonHeight - padding * 2) + padding;
+            const x = Math.random() * Math.max(0, cardRect.width - buttonWidth - padding * 2) + padding;
+            const y = Math.random() * Math.max(0, cardRect.height - buttonHeight - padding * 2) + padding;
 
             const noRel = {
                 top: y,
@@ -194,8 +207,8 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
 
         if (!found) {
             if (yesRel.top < cardRect.height / 2) {
-                bestX = cardRect.width - buttonWidth - padding;
-                bestY = cardRect.height - buttonHeight - padding;
+                bestX = Math.max(0, cardRect.width - buttonWidth - padding);
+                bestY = Math.max(0, cardRect.height - buttonHeight - padding);
             } else {
                 bestX = padding;
                 bestY = padding;
@@ -206,6 +219,21 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         setNoButtonPos({ x: bestX, y: bestY, rotate });
     }, []);
 
+    // After a resize / device rotation the card can shrink under an already-escaped No button,
+    // leaving it hanging outside the card (or unreachable). Pull it back inside, but only when
+    // it is actually out of bounds - re-randomising on every resize would make the button jump
+    // each time a mobile browser's address bar collapses.
+    const clampNoButton = useCallback(() => {
+        if (!cardRef.current || !noRef.current) return;
+        const maxX = Math.max(0, cardRef.current.offsetWidth - noRef.current.offsetWidth - 20);
+        const maxY = Math.max(0, cardRef.current.offsetHeight - noRef.current.offsetHeight - 20);
+        setNoButtonPos(prev => (
+            prev.x > maxX || prev.y > maxY
+                ? { ...prev, x: Math.min(prev.x, maxX), y: Math.min(prev.y, maxY) }
+                : prev
+        ));
+    }, []);
+
     const handleNo = useCallback(async () => {
         setNoCount(prev => prev + 1);
         setHasEscaped(true);
@@ -214,7 +242,8 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         // Track "No" click in database via secure RPC
         if (token) {
             try {
-                await supabase.rpc('track_no', { url_token: token });
+                const { error } = await supabase.rpc('track_no', { url_token: token });
+                if (error) logger.error('Error tracking No click:', error);
             } catch (error) {
                 logger.error('Error tracking No click:', error);
             }
@@ -242,7 +271,11 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.matchMedia("(pointer: coarse)").matches);
         checkMobile();
-        window.addEventListener('resize', checkMobile);
+        const handleResize = () => {
+            checkMobile();
+            clampNoButton();
+        };
+        window.addEventListener('resize', handleResize);
 
         const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
         setPrefersReducedMotion(mediaQuery.matches);
@@ -252,9 +285,9 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
 
         return () => {
             mediaQuery.removeEventListener('change', handler);
-            window.removeEventListener('resize', checkMobile);
+            window.removeEventListener('resize', handleResize);
         };
-    }, []);
+    }, [clampNoButton]);
 
     const getNoButtonText = () => {
         return NO_PHRASES[Math.min(noCount, NO_PHRASES.length - 1)];
@@ -263,6 +296,8 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
     const [subtitle] = useState(() => PROPOSAL_SUBTITLES[Math.floor(Math.random() * PROPOSAL_SUBTITLES.length)]);
 
     const [zIndex, setZIndex] = useState(70);
+    const zIndexTimer = useRef(null);
+    useEffect(() => () => clearTimeout(zIndexTimer.current), []);
 
     return (
         <div className="relative min-h-screen">
@@ -278,7 +313,8 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                 }}
                 onAnimationComplete={() => {
                     setIsEntryComplete(true);
-                    setTimeout(() => setZIndex(50), 1000);
+                    clearTimeout(zIndexTimer.current);
+                    zIndexTimer.current = setTimeout(() => setZIndex(50), 1000);
                 }}
                 className="bg-gradient-mesh font-['Quicksand'] min-h-screen overflow-hidden flex items-center justify-center p-4 relative"
                 style={{ perspective: 1000, zIndex }}
@@ -485,7 +521,8 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                             damping: 30
                                         }}
                                         animate={{
-                                            rotate: hasEscaped ? noButtonPos.rotate : 3
+                                            rotate: hasEscaped ? noButtonPos.rotate : 3,
+                                            scale: noCount > 15 ? 0.6 : noCount > 10 ? 0.75 : 1
                                         }}
                                         style={{
                                             position: hasEscaped ? "absolute" : "relative",
@@ -494,14 +531,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                             zIndex: hasEscaped ? 60 : 0,
                                             transform: hasEscaped ? "translateZ(80px)" : "translateZ(50px)"
                                         }}
-                                        className={`sticker-no px-6 py-2 md:px-8 md:py-3 rounded-2xl text-lg md:text-xl font-bold text-pink-400 hover:bg-pink-50 transition-all duration-300 cursor-pointer
-                                    ${noCount > 15
-                                                ? "scale-60"
-                                                : noCount > 10
-                                                    ? "scale-75"
-                                                    : ""
-                                            }
-`}
+                                        className="sticker-no px-6 py-2 md:px-8 md:py-3 rounded-2xl text-lg md:text-xl font-bold text-pink-400 hover:bg-pink-50 transition-all duration-300 cursor-pointer"
                                     >
                                         {noCount === 0 ? "No..." : getNoButtonText()}
                                     </motion.button>

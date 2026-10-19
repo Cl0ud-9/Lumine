@@ -11,6 +11,10 @@ import pointerCursor from '../assets/cursors/pointer-cursor.png';
 const TRAIL_LENGTH = 24;
 const TRAIL_EASE = 0.5;
 const REVEAL_MS = 500;
+// Once every trail point is within this many px (sub-pixel, invisible) of the pointer the worm has stopped moving,
+// so the frame loop can sleep until the next mousemove instead of rewriting 24 SVG lines
+// 60 times a second for a cursor that is sitting still.
+const SETTLED_EPSILON = 0.25;
 
 const CustomCursor = () => {
     const [isTouch, setIsTouch] = useState(false);
@@ -41,10 +45,48 @@ const CustomCursor = () => {
 
         const pointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
         const points = Array.from({ length: TRAIL_LENGTH }, () => ({ x: pointer.x, y: pointer.y }));
-        let hasMoved = false;
         let revealStart = null;
         let hovering = false;
         let rafId = null;
+        const reduceTrail = prefersReducedMotion;
+
+        const tick = (now) => {
+            if (revealStart === null) revealStart = now;
+            const revealProgress = Math.min(1, (now - revealStart) / REVEAL_MS);
+
+            let leaderX = pointer.x;
+            let leaderY = pointer.y;
+            let maxDelta = 0;
+            for (let i = 0; i < TRAIL_LENGTH; i++) {
+                const p = points[i];
+                const dx = leaderX - p.x;
+                const dy = leaderY - p.y;
+                p.x += dx * TRAIL_EASE;
+                p.y += dy * TRAIL_EASE;
+                maxDelta = Math.max(maxDelta, Math.abs(dx), Math.abs(dy));
+
+                const line = lineRefs.current[i];
+                if (line) {
+                    line.setAttribute('x1', p.x);
+                    line.setAttribute('y1', p.y);
+                    line.setAttribute('x2', leaderX);
+                    line.setAttribute('y2', leaderY);
+                    line.style.opacity = ((TRAIL_LENGTH - i) / TRAIL_LENGTH) * revealProgress;
+                }
+
+                leaderX = p.x;
+                leaderY = p.y;
+            }
+
+            // Keep running while the trail is still converging or the fade-in is in progress.
+            rafId = maxDelta > SETTLED_EPSILON || revealProgress < 1
+                ? requestAnimationFrame(tick)
+                : null;
+        };
+
+        const wake = () => {
+            if (!reduceTrail && rafId === null) rafId = requestAnimationFrame(tick);
+        };
 
         const onMouseMove = (e) => {
             // Trail follows slightly offset from the cursor icon for better visual alignment.
@@ -52,7 +94,7 @@ const CustomCursor = () => {
             pointer.y = e.clientY + 18;
             cursorX.set(e.clientX);
             cursorY.set(e.clientY);
-            hasMoved = true;
+            wake();
 
             // e.target is reliable here (the cursor overlay is pointer-events:none), so this
             // avoids calling document.elementFromPoint on every pixel of mouse movement -
@@ -70,40 +112,9 @@ const CustomCursor = () => {
 
         window.addEventListener('mousemove', onMouseMove, { passive: true });
 
-        if (!prefersReducedMotion) {
-            const tick = (now) => {
-                if (hasMoved) {
-                    if (revealStart === null) revealStart = now;
-                    const revealProgress = Math.min(1, (now - revealStart) / REVEAL_MS);
-
-                    let leaderX = pointer.x;
-                    let leaderY = pointer.y;
-                    for (let i = 0; i < TRAIL_LENGTH; i++) {
-                        const p = points[i];
-                        p.x += (leaderX - p.x) * TRAIL_EASE;
-                        p.y += (leaderY - p.y) * TRAIL_EASE;
-
-                        const line = lineRefs.current[i];
-                        if (line) {
-                            line.setAttribute('x1', p.x);
-                            line.setAttribute('y1', p.y);
-                            line.setAttribute('x2', leaderX);
-                            line.setAttribute('y2', leaderY);
-                            line.style.opacity = ((TRAIL_LENGTH - i) / TRAIL_LENGTH) * revealProgress;
-                        }
-
-                        leaderX = p.x;
-                        leaderY = p.y;
-                    }
-                }
-                rafId = requestAnimationFrame(tick);
-            };
-            rafId = requestAnimationFrame(tick);
-        }
-
         return () => {
             window.removeEventListener('mousemove', onMouseMove);
-            if (rafId) cancelAnimationFrame(rafId);
+            if (rafId !== null) cancelAnimationFrame(rafId);
         };
     }, [isTouch, prefersReducedMotion, cursorX, cursorY]);
 
@@ -148,7 +159,8 @@ const CustomCursor = () => {
                         // HOVER STATE: HEART CURSOR (Animated Pulse)
                         <motion.img
                             src={heartCursor}
-                            alt="cursor"
+                            alt=""
+                            aria-hidden="true"
                             className="w-10 h-10 object-contain -translate-x-1/2 -translate-y-full"
                             animate={{ scale: [1, 1.1, 1] }}
                             transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
@@ -157,7 +169,8 @@ const CustomCursor = () => {
                         // DEFAULT STATE: POINTER CURSOR
                         <img
                             src={pointerCursor}
-                            alt="pointer"
+                            alt=""
+                            aria-hidden="true"
                             className="w-10 h-10 object-contain"
                         />
                     )}

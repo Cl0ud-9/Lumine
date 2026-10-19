@@ -1,6 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 const HelpModal = ({ show, onClose }) => {
+    useEscapeKey(show, onClose);
+
     return (
         <AnimatePresence>
             {show && (
@@ -12,11 +15,14 @@ const HelpModal = ({ show, onClose }) => {
                     onClick={onClose}
                 >
                     <motion.div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="How to use Lumine"
                         initial={{ scale: 0.9, opacity: 0, y: 20 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.9, opacity: 0, y: 20 }}
                         onClick={(e) => e.stopPropagation()}
-                        className="bg-white/90 backdrop-blur-md rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 max-w-lg w-full shadow-2xl border-4 border-white relative overflow-hidden"
+                        className="bg-white/90 backdrop-blur-md rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border-4 border-white relative"
                     >
                         {/* Header */}
                         <div className="text-center mb-6 sm:mb-8 relative z-10">

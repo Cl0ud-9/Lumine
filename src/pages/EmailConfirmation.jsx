@@ -49,13 +49,14 @@ const EmailConfirmation = () => {
                     </p>
 
                     <div className="space-y-4">
-                        <Link to="/auth/verify">
-                            <button className="bubbly-yes w-full py-4 rounded-[2rem] text-xl font-['Fredoka'] text-white uppercase tracking-wider transition-transform active:scale-95 font-semibold">
-                                <span className="flex items-center justify-center gap-2">
-                                    Go to Login
-                                    <span className="material-symbols-outlined text-2xl">arrow_forward</span>
-                                </span>
-                            </button>
+                        <Link
+                            to="/auth/verify"
+                            className="bubbly-yes block w-full py-4 rounded-[2rem] text-xl font-['Fredoka'] text-white uppercase tracking-wider transition-transform active:scale-95 font-semibold"
+                        >
+                            <span className="flex items-center justify-center gap-2">
+                                Go to Login
+                                <span className="material-symbols-outlined text-2xl" aria-hidden="true">arrow_forward</span>
+                            </span>
                         </Link>
 
                         <p className="font-['Quicksand'] text-sm text-gray-500 font-medium">

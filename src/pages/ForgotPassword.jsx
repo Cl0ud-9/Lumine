@@ -15,19 +15,24 @@ const ForgotPassword = () => {
 
     const handleResetPassword = async (e) => {
         e.preventDefault();
+        if (loading) return;
         setLoading(true);
         setError('');
         setMessage('');
 
-        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/auth/reset-password`,
-        });
+        try {
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+                redirectTo: `${window.location.origin}/auth/reset-password`,
+            });
 
-        if (resetError) {
-            setError(resetError.message);
-            setLoading(false);
-        } else {
-            setMessage('Password reset email sent! Check your inbox.');
+            if (resetError) {
+                setError(resetError.message);
+            } else {
+                setMessage('Password reset email sent! Check your inbox.');
+            }
+        } catch {
+            setError('Something went wrong. Please check your connection and try again.');
+        } finally {
             setLoading(false);
         }
     };
@@ -65,6 +70,8 @@ const ForgotPassword = () => {
                             <FloatingLabelInput
                                 label="Email"
                                 type="email"
+                                name="email"
+                                autoComplete="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -72,13 +79,13 @@ const ForgotPassword = () => {
                         </div>
 
                         {error && (
-                            <div className="font-['Quicksand'] bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold">
+                            <div role="alert" className="font-['Quicksand'] bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold">
                                 {error}
                             </div>
                         )}
 
                         {message && (
-                            <div className="font-['Quicksand'] bg-green-50 text-green-600 px-4 py-3 rounded-xl text-sm font-semibold">
+                            <div role="status" className="font-['Quicksand'] bg-green-50 text-green-600 px-4 py-3 rounded-xl text-sm font-semibold">
                                 {message}
                             </div>
                         )}

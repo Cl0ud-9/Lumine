@@ -6,12 +6,16 @@ import { visualizer } from 'rollup-plugin-visualizer'
 export default defineConfig({
   plugins: [
     react(),
-    visualizer({
-      filename: 'stats.html',
-      open: false,
-      gzipSize: true,
-      brotliSize: true,
-    })
+    // The bundle report is only useful on demand (`ANALYZE=1 npm run build`); generating it
+    // - including gzip + brotli size passes - on every build just slowed normal builds down.
+    ...(process.env.ANALYZE
+      ? [visualizer({
+          filename: 'stats.html',
+          open: false,
+          gzipSize: true,
+          brotliSize: true,
+        })]
+      : [])
   ],
   build: {
     chunkSizeWarningLimit: 1000,
@@ -19,7 +23,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           'vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui': ['framer-motion', 'lucide-react'],
+          'ui': ['framer-motion'],
           'db': ['@supabase/supabase-js']
         }
       }

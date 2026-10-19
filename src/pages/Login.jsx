@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
@@ -15,21 +15,38 @@ const Login = () => {
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
+    // Someone who is already signed in has no reason to see the login form again.
+    useEffect(() => {
+        let cancelled = false;
+        supabase.auth.getSession()
+            .then(({ data: { session } }) => {
+                if (!cancelled && session) navigate('/admin/analytics', { replace: true });
+            })
+            .catch(() => { /* no readable session - just show the form */ });
+        return () => { cancelled = true; };
+    }, [navigate]);
+
     const handleLogin = async (e) => {
         e.preventDefault();
+        if (loading) return;
         setLoading(true);
         setError('');
 
-        const { error: authError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
+        try {
+            const { error: authError } = await supabase.auth.signInWithPassword({
+                email: email.trim(),
+                password,
+            });
 
-        if (authError) {
-            setError(authError.message);
+            if (authError) {
+                setError(authError.message);
+                setLoading(false);
+            } else {
+                navigate('/admin/analytics', { replace: true });
+            }
+        } catch {
+            setError('Something went wrong. Please check your connection and try again.');
             setLoading(false);
-        } else {
-            navigate('/admin/analytics');
         }
     };
 
@@ -105,7 +122,7 @@ const Login = () => {
                         </div>
 
                         {error && (
-                            <div className="font-['Quicksand'] bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold">
+                            <div role="alert" className="font-['Quicksand'] bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold">
                                 {error}
                             </div>
                         )}

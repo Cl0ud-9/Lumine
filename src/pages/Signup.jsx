@@ -5,6 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import CustomCursor from '../components/CustomCursor';
 import FloatingLabelInput from '../components/FloatingLabelInput';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { isStrongPassword, PASSWORD_REQUIREMENTS_MESSAGE } from '../lib/validation';
 
 const Signup = () => {
     usePageTitle('Sign Up');
@@ -19,32 +20,43 @@ const Signup = () => {
 
     const handleSignup = async (e) => {
         e.preventDefault();
-        setLoading(true);
+        if (loading) return;
         setError('');
 
         if (password !== confirmPassword) {
             setError('Passwords do not match');
-            setLoading(false);
             return;
         }
 
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-        if (!passwordRegex.test(password)) {
-            setError('Password must be at least 8 characters and include uppercase, number, and special character');
-            setLoading(false);
+        if (!isStrongPassword(password)) {
+            setError(PASSWORD_REQUIREMENTS_MESSAGE);
             return;
         }
 
-        const { error: authError } = await supabase.auth.signUp({
-            email,
-            password,
-        });
+        setLoading(true);
 
-        if (authError) {
-            setError(authError.message);
+        try {
+            const { data, error: authError } = await supabase.auth.signUp({
+                email: email.trim(),
+                password,
+                options: { emailRedirectTo: `${window.location.origin}/auth/verify` },
+            });
+
+            if (authError) {
+                setError(authError.message);
+                setLoading(false);
+            } else if (data?.user && data.user.identities?.length === 0) {
+                // With email confirmation on, Supabase hides "already registered" by returning
+                // a user with no identities instead of an error - without this check the
+                // person would be sent to "check your inbox" for an email that never arrives.
+                setError('An account with this email already exists. Try logging in instead.');
+                setLoading(false);
+            } else {
+                navigate('/auth/email-confirmation');
+            }
+        } catch {
+            setError('Something went wrong. Please check your connection and try again.');
             setLoading(false);
-        } else {
-            navigate('/auth/email-confirmation');
         }
     };
 
@@ -145,7 +157,7 @@ const Signup = () => {
                         </div>
 
                         {error && (
-                            <div className="font-['Quicksand'] bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold">
+                            <div role="alert" className="font-['Quicksand'] bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold">
                                 {error}
                             </div>
                         )}

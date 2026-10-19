@@ -106,7 +106,14 @@ const Celebration = forwardRef((props, ref) => {
             try {
                 if (!cancelled && !isMuted) await audioRef.current.play();
             } catch (e) {
-                if (e.name !== 'AbortError') logger.error("Music play failed", e);
+                // AbortError just means we were unmounted / paused mid-load. Anything else
+                // (typically NotAllowedError from the browser's autoplay policy) means nothing
+                // is actually playing, so show the muted icon - otherwise the button claims
+                // music is on, and the first tap "mutes" silence instead of starting it.
+                if (e.name !== 'AbortError') {
+                    logger.error("Music play failed", e);
+                    if (!cancelled) setIsMuted(true);
+                }
             }
         };
         playMusic();
@@ -132,7 +139,10 @@ const Celebration = forwardRef((props, ref) => {
                 audioRef.current.pause();
             } else {
                 audioRef.current.play().catch(e => {
-                    if (e.name !== 'AbortError') logger.error("Resume failed", e);
+                    if (e.name !== 'AbortError') {
+                        logger.error("Resume failed", e);
+                        setIsMuted(true);
+                    }
                 });
             }
         }
@@ -171,13 +181,20 @@ const Celebration = forwardRef((props, ref) => {
     const [heat, setHeat] = useState(0);
     const [isHolding, setIsHolding] = useState(false);
     const holdIntervalRef = useRef(null);
+    const isHoldingRef = useRef(false);
 
+    // Decay only runs while there is heat to shed. A permanent 100ms interval re-rendered this
+    // whole animated page ten times a second even when nobody had touched the heart.
+    const isHot = heat > 0;
     useEffect(() => {
+        if (!isHot) return undefined;
         const timer = setInterval(() => {
             setHeat(h => Math.max(0, h - 2));
         }, 100);
         return () => clearInterval(timer);
-    }, []);
+    }, [isHot]);
+
+    useEffect(() => () => clearInterval(holdIntervalRef.current), []);
 
     const spawnHearts = (count = 1, forceScale = 1) => {
         const newHearts = Array.from({ length: count }).map(() => {
@@ -200,8 +217,13 @@ const Celebration = forwardRef((props, ref) => {
         setPopHearts(prev => [...prev.slice(-25), ...newHearts]);
     };
 
+    // Driven by pointer events, with a ref guard. The old onMouseDown + onTouchStart pair both
+    // fired for one touch (touchstart, then the emulated mousedown), starting two intervals and
+    // overwriting the first one's id - the orphaned interval then pumped heat forever.
     const handlePress = (e) => {
         if (e.cancelable) e.preventDefault();
+        if (isHoldingRef.current) return;
+        isHoldingRef.current = true;
         setIsHolding(true);
         setHeat(h => Math.min(100, h + 10));
         spawnHearts(1);
@@ -212,11 +234,12 @@ const Celebration = forwardRef((props, ref) => {
     };
 
     const handleRelease = () => {
-        if (isHolding) {
-            setIsHolding(false);
-            clearInterval(holdIntervalRef.current);
-            if (heat > 20) spawnHearts(5, 1.5);
-        }
+        if (!isHoldingRef.current) return;
+        isHoldingRef.current = false;
+        setIsHolding(false);
+        clearInterval(holdIntervalRef.current);
+        holdIntervalRef.current = null;
+        if (heat > 20) spawnHearts(5, 1.5);
     };
 
     return (
@@ -443,13 +466,13 @@ const Celebration = forwardRef((props, ref) => {
                                         rotate: heat > 30 ? SHAKE_ANIMATION : 0,
                                     }}
                                     transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                                    onMouseDown={handlePress}
-                                    onMouseUp={handleRelease}
-                                    onMouseLeave={handleRelease}
-                                    onTouchStart={handlePress}
-                                    onTouchEnd={handleRelease}
+                                    onPointerDown={handlePress}
+                                    onPointerUp={handleRelease}
+                                    onPointerLeave={handleRelease}
+                                    onPointerCancel={handleRelease}
+                                    onContextMenu={(e) => e.preventDefault()}
                                     className="cursor-pointer relative z-20"
-                                    style={{ translateZ: 50 }}
+                                    style={{ translateZ: 50, touchAction: 'none' }}
                                 >
                                     <motion.div
                                         animate={{
