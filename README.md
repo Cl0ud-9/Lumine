@@ -1,4 +1,4 @@
-# 💝 Lumine - Digital Proposal Experience
+# 💝 Lumine
 
 **Ask "Will you be my Valentine?" with a link they will never forget.** Lumine turns a proposal into a playful,
 interactive moment - and tells you the second they open it and how long it took them to say yes.
