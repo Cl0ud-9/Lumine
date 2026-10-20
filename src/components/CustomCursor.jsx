@@ -15,6 +15,10 @@ const REVEAL_MS = 500;
 // so the frame loop can sleep until the next mousemove instead of rewriting 24 SVG lines
 // 60 times a second for a cursor that is sitting still.
 const SETTLED_EPSILON = 0.25;
+// Anything that behaves like a button for the "hover" cursor. `.cursor-pointer` covers the
+// non-<button> click targets (e.g. the celebration page's tappable heart and badges), which
+// the old selector missed - they kept the plain cursor even though they are clickable.
+const CLICKABLE_SELECTOR = 'button, a, input, select, textarea, label, summary, [role="button"], .cursor-pointer';
 
 const CustomCursor = () => {
     const [isTouch, setIsTouch] = useState(false);
@@ -23,6 +27,7 @@ const CustomCursor = () => {
     const cursorX = useMotionValue(-100);
     const cursorY = useMotionValue(-100);
     const lineRefs = useRef([]);
+    const overlayRef = useRef(null);
 
     useEffect(() => {
         const checkTouch = () => setIsTouch(window.matchMedia('(pointer: coarse)').matches);
@@ -47,7 +52,12 @@ const CustomCursor = () => {
         const points = Array.from({ length: TRAIL_LENGTH }, () => ({ x: pointer.x, y: pointer.y }));
         let revealStart = null;
         let hovering = false;
+        let visible = true;
+        let lastX = null;
+        let lastY = null;
         let rafId = null;
+        let scrollRaf = null;
+        const hoverTimers = [];
         const reduceTrail = prefersReducedMotion;
 
         const tick = (now) => {
@@ -88,40 +98,86 @@ const CustomCursor = () => {
             if (!reduceTrail && rafId === null) rafId = requestAnimationFrame(tick);
         };
 
-        const onMouseMove = (e) => {
-            // Trail follows slightly offset from the cursor icon for better visual alignment.
-            pointer.x = e.clientX + 20;
-            pointer.y = e.clientY + 18;
-            cursorX.set(e.clientX);
-            cursorY.set(e.clientY);
-            wake();
-
-            // e.target is reliable here (the cursor overlay is pointer-events:none), so this
-            // avoids calling document.elementFromPoint on every pixel of mouse movement -
-            // that call forces a synchronous layout and was a major jank source.
-            const target = e.target;
-            const isClickable = !!(target && (
-                target.matches?.('button, a, input, select, textarea, [role="button"]') ||
-                target.closest?.('button, a, [role="button"]')
-            ));
+        const setHover = (isClickable) => {
             if (isClickable !== hovering) {
                 hovering = isClickable;
                 setIsHovering(isClickable);
             }
         };
 
+        const setVisible = (next) => {
+            if (next !== visible && overlayRef.current) {
+                visible = next;
+                overlayRef.current.style.opacity = next ? '1' : '0';
+            }
+        };
+
+        const onMouseMove = (e) => {
+            // The heart is centred on the real pointer position (see the default <img> below),
+            // so the trail anchors exactly there. It used to be drawn with its top-left corner
+            // on the pointer, which put the visible heart ~20px down-right of where a click
+            // actually landed.
+            pointer.x = e.clientX;
+            pointer.y = e.clientY;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            cursorX.set(e.clientX);
+            cursorY.set(e.clientY);
+            setVisible(true);
+            wake();
+
+            // e.target is reliable here (the cursor overlay is pointer-events:none), so this
+            // avoids calling document.elementFromPoint on every pixel of mouse movement -
+            // that call forces a synchronous layout and was a major jank source.
+            setHover(!!e.target?.closest?.(CLICKABLE_SELECTOR));
+        };
+
+        // The element under a stationary pointer can change without any mouse movement: a
+        // button runs away after a click (the "No" button), a modal closes, the page scrolls.
+        // Without a re-check the cursor stayed in its "hovering" shape over empty space.
+        const refreshHover = () => {
+            if (lastX === null) return;
+            setHover(!!document.elementFromPoint(lastX, lastY)?.closest?.(CLICKABLE_SELECTOR));
+        };
+
+        const onClick = () => {
+            // Re-check after the click's effects (and the No button's slide transition) land.
+            hoverTimers.push(setTimeout(refreshHover, 80), setTimeout(refreshHover, 450));
+        };
+
+        const onScroll = () => {
+            if (scrollRaf === null) {
+                scrollRaf = requestAnimationFrame(() => {
+                    scrollRaf = null;
+                    refreshHover();
+                });
+            }
+        };
+
+        // Hide the cursor while the mouse is outside the window instead of leaving it frozen
+        // at the last position it was seen.
+        const onLeave = () => setVisible(false);
+
         window.addEventListener('mousemove', onMouseMove, { passive: true });
+        window.addEventListener('click', onClick, true);
+        window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+        document.documentElement.addEventListener('mouseleave', onLeave);
 
         return () => {
             window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('click', onClick, true);
+            window.removeEventListener('scroll', onScroll, { capture: true });
+            document.documentElement.removeEventListener('mouseleave', onLeave);
+            hoverTimers.forEach(clearTimeout);
             if (rafId !== null) cancelAnimationFrame(rafId);
+            if (scrollRaf !== null) cancelAnimationFrame(scrollRaf);
         };
     }, [isTouch, prefersReducedMotion, cursorX, cursorY]);
 
     if (isTouch) return null;
 
     return (
-        <div className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden">
+        <div ref={overlayRef} className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden transition-opacity duration-150">
             {!prefersReducedMotion && (
                 <svg className="absolute inset-0 w-full h-full pointer-events-none">
                     {Array.from({ length: TRAIL_LENGTH }).map((_, i) => {
@@ -161,17 +217,17 @@ const CustomCursor = () => {
                             src={heartCursor}
                             alt=""
                             aria-hidden="true"
-                            className="w-10 h-10 object-contain -translate-x-1/2 -translate-y-full"
+                            className="w-10 h-10 object-contain"
                             animate={{ scale: [1, 1.1, 1] }}
                             transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
                         />
                     ) : (
-                        // DEFAULT STATE: POINTER CURSOR
+                        // DEFAULT STATE: centred on the pointer so the visible heart is where clicks land
                         <img
                             src={pointerCursor}
                             alt=""
                             aria-hidden="true"
-                            className="w-10 h-10 object-contain"
+                            className="w-10 h-10 object-contain -translate-x-1/2 -translate-y-1/2"
                         />
                     )}
                 </motion.div>
