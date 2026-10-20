@@ -1,35 +1,19 @@
-<h1 align="center">💝 Lumine</h1>
+# 💝 Lumine - Digital Proposal Experience
 
-<p align="center"><strong>Ask "Will you be my Valentine?" with a link they will never forget.</strong></p>
+**Ask "Will you be my Valentine?" with a link they will never forget.** Lumine turns a proposal into a playful,
+interactive moment - and tells you the second they open it and how long it took them to say yes.
 
-<p align="center">
-  <a href="https://lumine-eta.vercel.app"><img src="https://img.shields.io/badge/Live%20demo-lumine--eta.vercel.app-ff4d7d?style=for-the-badge&logo=vercel&logoColor=white" alt="Live demo" height="34"></a>
-</p>
+[![Live demo](https://img.shields.io/badge/Live%20demo-lumine--eta.vercel.app-ff4d7d?style=for-the-badge&logo=vercel&logoColor=white)](https://lumine-eta.vercel.app)
 
-<p align="center">
-  <a href="https://github.com/Cl0ud-9/Lumine/actions/workflows/ci.yml"><img src="https://github.com/Cl0ud-9/Lumine/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-source--available-ff4d7d" alt="License: source-available"></a>
-  <img src="https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white" alt="React 18">
-  <img src="https://img.shields.io/badge/Vite-7-646cff?logo=vite&logoColor=white" alt="Vite 7">
-  <img src="https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss&logoColor=white" alt="Tailwind CSS 3">
-  <img src="https://img.shields.io/badge/Supabase-backend-3ecf8e?logo=supabase&logoColor=white" alt="Supabase">
-</p>
+[![CI](https://github.com/Cl0ud-9/Lumine/actions/workflows/ci.yml/badge.svg)](https://github.com/Cl0ud-9/Lumine/actions/workflows/ci.yml)
+[![License: source-available](https://img.shields.io/badge/license-source--available-ff4d7d)](LICENSE)
+[![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-7-646cff?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-backend-3ecf8e?logo=supabase&logoColor=white)](https://supabase.com/)
 
-<p align="center">
-  <a href="#-what-this-does">What it does</a> &nbsp;·&nbsp;
-  <a href="#-features">Features</a> &nbsp;·&nbsp;
-  <a href="#-requirements">Get started</a> &nbsp;·&nbsp;
-  <a href="#-deployment">Deployment</a> &nbsp;·&nbsp;
-  <a href="#-performance">Performance</a> &nbsp;·&nbsp;
-  <a href="#-troubleshooting">Troubleshooting</a> &nbsp;·&nbsp;
-  <a href="CHANGELOG.md">Changelog</a>
-</p>
-
-<br>
-
-Lumine turns a proposal into a playful, interactive moment - and tells you the second they open it and how long it
-took them to say yes. Open the [live demo](https://lumine-eta.vercel.app), create an account, make a link and open it
-on your phone to see it for yourself.
+Open the [live demo](https://lumine-eta.vercel.app), create an account, make a link and open it on your phone to see it
+for yourself.
 
 ---
 
@@ -365,10 +349,9 @@ written permission. See [LICENSE](LICENSE) for the full terms.
 Bundled libraries, fonts and the icon font keep their own licenses, listed in [NOTICE](NOTICE). The background music
 clip belongs to its rights holders and is not covered by Lumine's license.
 
-<br>
+---
 
-<p align="center">
-  <sub>Made with ❤️ by <a href="https://github.com/Cl0ud-9">Cloud/9</a>, for the ones who ask. A star on the repository is a lovely way to say thanks.</sub>
-  <br>
-  <sub>Lumine is an independent project. It is not affiliated with or endorsed by Supabase, Vercel or Google.</sub>
-</p>
+Made with ❤️ by [Cloud/9](https://github.com/Cl0ud-9), for the ones who ask. A star on the repository is a lovely way to
+say thanks.
+
+Lumine is an independent project. It is not affiliated with or endorsed by Supabase, Vercel or Google.
