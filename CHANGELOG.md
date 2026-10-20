@@ -8,7 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and the versi
 
 ## [Unreleased]
 
-Everything since v1.1. Existing databases need `supabase_upgrade.sql` re-run once (it is safe to repeat).
+## [1.2.0] - 2026-10-21
+
+*Faster, safer, smoother.* ([release](https://github.com/Cl0ud-9/Lumine/releases/tag/v1.2.0))
+
+**Upgrading:** pull the new version, then re-run `supabase_upgrade.sql` once in your Supabase SQL editor (it is safe to
+repeat and never touches your data). Without it everything keeps working, but Delete account only removes links and
+visit history is not capped.
 
 ### The proposal
 
@@ -70,6 +76,7 @@ Everything since v1.1. Existing databases need `supabase_upgrade.sql` re-run onc
 - A parallax effect, a real-time dashboard to create links and watch views and responses, background music with a
   mute button, glassmorphism styling with custom cursors, full responsiveness, and Supabase-powered accounts.
 
-[Unreleased]: https://github.com/Cl0ud-9/Lumine/compare/v1.1...HEAD
+[Unreleased]: https://github.com/Cl0ud-9/Lumine/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/Cl0ud-9/Lumine/compare/v1.1...v1.2.0
 [1.1]: https://github.com/Cl0ud-9/Lumine/compare/v1.0.0...v1.1
 [1.0.0]: https://github.com/Cl0ud-9/Lumine/releases/tag/v1.0.0
