@@ -9,7 +9,23 @@ export default [
         ignores: ['dist/'],
     },
     {
+        // Vercel serverless functions run on Node, not in the browser.
+        files: ['api/**/*.js'],
+        languageOptions: {
+            ecmaVersion: 'latest',
+            sourceType: 'module',
+            globals: {
+                ...globals.node,
+            },
+        },
+        rules: {
+            ...js.configs.recommended.rules,
+            'no-unused-vars': 'warn',
+        },
+    },
+    {
         files: ['**/*.{js,jsx}'],
+        ignores: ['api/**'],
         languageOptions: {
             ecmaVersion: 'latest',
             sourceType: 'module',

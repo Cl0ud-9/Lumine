@@ -55,6 +55,22 @@ using (auth.uid() = user_id);
 -- All of these use `create or replace`, so re-running this section on an existing project
 -- is safe and is how to pick up changes.
 
+-- Helper: append to a timestamp array but keep only the newest `max_len` entries.
+-- Without a cap the visit / yes arrays grew forever (every page load adds an element), so a link that
+-- is opened or refreshed thousands of times - by a bot, or just a very keen recipient - made its row
+-- ever larger and every dashboard refresh heavier. The exact totals are NOT lost: `total_visits` is a
+-- separate counter, and `first_opened_at` / `first_yes_at` are stored separately; only the oldest
+-- entries of the history list are dropped. It also trims rows that are already over the limit the next
+-- time they are touched, so existing data heals itself.
+create or replace function append_capped(arr timestamp with time zone[], item timestamp with time zone, max_len int)
+returns timestamp with time zone[] as $$
+  select case
+    when coalesce(cardinality(arr), 0) >= max_len
+      then (arr || item)[cardinality(arr) + 2 - max_len : cardinality(arr) + 1]
+    else coalesce(arr, '{}'::timestamp with time zone[]) || item
+  end
+$$ language sql immutable;
+
 -- 1. Secure function to track visits (handles timestamps + counter)
 create or replace function track_visit(url_token text)
 returns void as $$
@@ -62,7 +78,7 @@ begin
   update invites
   set 
     total_visits = total_visits + 1,
-    visit_timestamps = array_append(visit_timestamps, now()),
+    visit_timestamps = append_capped(visit_timestamps, now(), 200),
     first_opened_at = coalesce(first_opened_at, now())
   where token = url_token;
 end;
@@ -76,7 +92,7 @@ begin
   set 
     used = true,
     used_at = now(),
-    yes_timestamps = array_append(yes_timestamps, now()),
+    yes_timestamps = append_capped(yes_timestamps, now(), 50),
     first_yes_at = coalesce(first_yes_at, now()),
     first_opened_at = coalesce(first_opened_at, now()) -- Fix race condition: ensure opened_at exists
   where token = url_token;

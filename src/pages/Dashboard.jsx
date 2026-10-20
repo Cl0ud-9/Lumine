@@ -1045,6 +1045,14 @@ const InviteCard = memo(({ invite, onCopy, onDelete, formatDateTime, formatRelat
                             <div className="font-['Quicksand'] text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-2">
                                 <IconBadge icon="history" color="purple" /> Visit History
                             </div>
+                            {/* The database keeps the newest 200 visit timestamps per link (see append_capped in
+                                supabase_schema.sql); the Visits counter is the exact total. Say so rather than
+                                letting the list silently disagree with the counter. */}
+                            {invite.total_visits > invite.visit_timestamps.length && (
+                                <p className="font-['Quicksand'] text-xs text-gray-500 -mt-1 mb-3">
+                                    Showing the latest {invite.visit_timestamps.length} of {invite.total_visits} visits
+                                </p>
+                            )}
                             <div className="custom-scrollbar-wrapper">
                                 <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
                                     {[...invite.visit_timestamps].reverse().map((timestamp, index) => (
