@@ -46,6 +46,10 @@ const trackYesWithRetry = async (token, attempts = 3) => {
     }
 };
 
+// How long after a "No" click a "Yes" click is ignored - a little longer than the No button's
+// slide (300ms) so accidental taps on its moving target can't be read as an answer.
+const YES_GUARD_MS = 450;
+
 const PROPOSAL_SUBTITLES = [
     "Because my world feels brighter with you in it!",
     "You're the missing piece to my puzzle.",
@@ -67,6 +71,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
     const [noButtonPos, setNoButtonPos] = useState({ x: 0, y: 0, rotate: 0 });
     const [hasEscaped, setHasEscaped] = useState(false);
     const hasEscapedRef = useRef(false);
+    const lastNoClickAt = useRef(-Infinity);
     // The Yes button re-centres when the No button leaves the row. These drive a one-off glide
     // for that move (see the layout effect below) instead of letting it snap.
     const yesGlideX = useMotionValue(0);
@@ -150,6 +155,11 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
 
     const handleYes = useCallback(async () => {
         if (isSending) return;
+
+        // Mashing "No" means tapping where the button WAS a moment ago, while it is still sliding
+        // away (its path can even cross Yes). Those late taps used to land on Yes and permanently
+        // record an answer the recipient never meant to give. Ignore Yes for a moment after any No.
+        if (performance.now() - lastNoClickAt.current < YES_GUARD_MS) return;
 
         setIsSending(true);
 
@@ -246,6 +256,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
     }, []);
 
     const handleNo = useCallback(async () => {
+        lastNoClickAt.current = performance.now();
         setNoCount(prev => prev + 1);
 
         if (!hasEscapedRef.current) {
