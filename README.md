@@ -1,21 +1,35 @@
-# 💝 Lumine - Digital Proposal Experience
+<h1 align="center">💝 Lumine</h1>
 
-**Ask "Will you be my Valentine?" with a link they will never forget.** Lumine turns a proposal into a playful,
-interactive moment - and tells you the second they open it and how long it took them to say yes.
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-pink.svg)](https://opensource.org/licenses/MIT)
-[![React](https://img.shields.io/badge/React-18-61dafb.svg?logo=react&logoColor=white)](https://reactjs.org/)
-[![Vite](https://img.shields.io/badge/Vite-7-646cff.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Tailwind](https://img.shields.io/badge/Tailwind-3-38bdf8.svg?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Supabase](https://img.shields.io/badge/Supabase-Backend-3ecf8e.svg?logo=supabase&logoColor=white)](https://supabase.com/)
-![Lighthouse](https://img.shields.io/badge/Lighthouse-97--100-brightgreen.svg)
-![Accessibility](https://img.shields.io/badge/axe--core-0%20violations-brightgreen.svg)
-
-**[🌐 Live demo](https://lumine-eta.vercel.app)** - sign up, create a link, and open it on your phone.
+<p align="center"><strong>Ask "Will you be my Valentine?" with a link they will never forget.</strong></p>
 
 <p align="center">
-  <img src="docs/screenshots/proposal.webp" alt="The proposal page: 'Will you be my Valentine?' with a Yes and a shy No button" width="860">
+  <a href="https://lumine-eta.vercel.app"><img src="https://img.shields.io/badge/Live%20demo-lumine--eta.vercel.app-ff4d7d?style=for-the-badge&logo=vercel&logoColor=white" alt="Live demo" height="34"></a>
 </p>
+
+<p align="center">
+  <a href="https://github.com/Cl0ud-9/Lumine/actions/workflows/ci.yml"><img src="https://github.com/Cl0ud-9/Lumine/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-source--available-ff4d7d" alt="License: source-available"></a>
+  <img src="https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white" alt="React 18">
+  <img src="https://img.shields.io/badge/Vite-7-646cff?logo=vite&logoColor=white" alt="Vite 7">
+  <img src="https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss&logoColor=white" alt="Tailwind CSS 3">
+  <img src="https://img.shields.io/badge/Supabase-backend-3ecf8e?logo=supabase&logoColor=white" alt="Supabase">
+</p>
+
+<p align="center">
+  <a href="#-what-this-does">What it does</a> &nbsp;·&nbsp;
+  <a href="#-features">Features</a> &nbsp;·&nbsp;
+  <a href="#-requirements">Get started</a> &nbsp;·&nbsp;
+  <a href="#-deployment">Deployment</a> &nbsp;·&nbsp;
+  <a href="#-performance">Performance</a> &nbsp;·&nbsp;
+  <a href="#-troubleshooting">Troubleshooting</a> &nbsp;·&nbsp;
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+<br>
+
+Lumine turns a proposal into a playful, interactive moment - and tells you the second they open it and how long it
+took them to say yes. Open the [live demo](https://lumine-eta.vercel.app), create an account, make a link and open it
+on your phone to see it for yourself.
 
 ---
 
@@ -29,19 +43,6 @@ interactive moment - and tells you the second they open it and how long it took 
 
 **For the recipient:** a beautiful, animated page where the "No" button jumps to a new spot every time it is clicked
 (and shrinks the more it is pressed) until they say "Yes!"
-
-## 📸 Screenshots
-
-<p align="center">
-  <img src="docs/screenshots/mobile.webp" alt="Lumine on a phone: proposal, celebration and dashboard" width="860">
-</p>
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/celebration.webp" alt="The celebration page after saying yes"><br><sub><b>The celebration</b> - confetti, music, and a heart you can press and hold.</sub></td>
-    <td width="50%"><img src="docs/screenshots/dashboard.webp" alt="The sender dashboard"><br><sub><b>The dashboard</b> - links grouped as Waiting / Pending / Yes, with live stats.</sub></td>
-  </tr>
-</table>
 
 ---
 
@@ -92,11 +93,13 @@ Lumine/
 ├── api/keepalive.js             # Vercel function the daily cron calls to keep Supabase awake
 ├── public/                      # favicon, robots.txt, audio/, fonts/ (self-hosted fonts + icon subset)
 ├── scripts/update-icons.mjs     # Regenerates / verifies the icon-font subset (npm run icons / icons:check)
-├── docs/screenshots/            # Images used in this README
 ├── supabase_schema.sql          # Database schema for a NEW project
 ├── supabase_upgrade.sql         # Safe-to-re-run upgrade for an EXISTING project
 ├── vercel.json                  # SPA rewrite, cache headers, and the daily keep-alive cron
 ├── .env.example                 # Template for required environment variables
+├── LICENSE, NOTICE              # Source-available license, and third-party licenses
+├── CONTRIBUTING.md, SECURITY.md, CODE_OF_CONDUCT.md, CHANGELOG.md
+├── .github/                     # CI workflow, issue forms, pull request template
 └── README.md
 ```
 
@@ -345,10 +348,27 @@ A few things that look odd but are deliberate - each one fixed a real bug:
 
 ---
 
-## ⚖️ License
+## 🤝 Contributing
 
-Licensed under the **MIT License**.
+Bug reports, ideas and pull requests are welcome - see [CONTRIBUTING.md](CONTRIBUTING.md). Found a security problem?
+Please report it privately: [SECURITY.md](SECURITY.md).
 
 ---
 
-**Made with ❤️ for the ones who ask**
+## ⚖️ License
+
+Lumine is **source-available**: Copyright 2026 Cloud/9, all rights reserved. You can read the source, deploy your own
+copy to send your own proposals, and fork it to contribute back. Redistributing it, publishing modified or rebranded
+copies, running a public instance for other people, selling it, or using it to train AI models is not allowed without
+written permission. See [LICENSE](LICENSE) for the full terms.
+
+Bundled libraries, fonts and the icon font keep their own licenses, listed in [NOTICE](NOTICE). The background music
+clip belongs to its rights holders and is not covered by Lumine's license.
+
+<br>
+
+<p align="center">
+  <sub>Made with ❤️ by <a href="https://github.com/Cl0ud-9">Cloud/9</a>, for the ones who ask. A star on the repository is a lovely way to say thanks.</sub>
+  <br>
+  <sub>Lumine is an independent project. It is not affiliated with or endorsed by Supabase, Vercel or Google.</sub>
+</p>

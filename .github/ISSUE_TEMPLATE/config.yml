@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/Cl0ud-9/Lumine/security/advisories/new
+    about: Please report vulnerabilities privately, not as a public issue.
+  - name: Troubleshooting
+    url: https://github.com/Cl0ud-9/Lumine#-troubleshooting
+    about: The most common causes of a blank page, missing emails or a paused database, and how to fix them.
+  - name: Try the live demo
+    url: https://lumine-eta.vercel.app
+    about: See Lumine running before you set up your own.

@@ -1,7 +1,18 @@
 {
-  "name": "valentine-proposal",
+  "name": "lumine",
+  "description": "A romantic, interactive proposal website built with React, Framer Motion and Supabase, with real-time tracking and a custom dashboard.",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "Cloud/9 (https://github.com/Cl0ud-9)",
+  "homepage": "https://lumine-eta.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cl0ud-9/Lumine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Cl0ud-9/Lumine/issues"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

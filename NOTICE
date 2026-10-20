@@ -1,0 +1,35 @@
+Lumine bundles the following third-party libraries into the deployed website.
+Each keeps its own license, reproduced or referenced below.
+
+react 18.3.1 and react-dom 18.3.1 - MIT
+  Copyright (c) Meta Platforms, Inc. and affiliates. https://github.com/facebook/react
+
+react-router-dom 7.18.2 - MIT
+  Copyright (c) React Training LLC 2015-2019, Copyright (c) Remix Software Inc. 2020-2021,
+  Copyright (c) Shopify Inc. 2022-2023. https://github.com/remix-run/react-router
+
+framer-motion 11.18.2 - MIT
+  Copyright (c) 2018 Framer B.V. https://github.com/motiondivision/motion
+
+@supabase/supabase-js 2.94.0 - MIT
+  Copyright (c) 2020 Supabase. https://github.com/supabase/supabase-js
+  (loaded only on the login, sign-up and dashboard pages, never on a recipient's proposal page)
+
+These libraries pull in their own dependencies, each under its own license; see the packages listed in
+package-lock.json. Development tools (Vite, Tailwind CSS, TypeScript, ESLint and the like) are not distributed with
+the Software.
+
+Fonts (public/fonts/): Inter, Fredoka, Pacifico, Plus Jakarta Sans and Quicksand, each Copyright The respective
+Project Authors, licensed under the SIL Open Font License 1.1 (public/fonts/OFL.txt, https://openfontlicense.org).
+Changes: trimmed to the Latin range, as served by Google Fonts. The fonts are not sold on their own.
+
+Icons (public/fonts/material-symbols-*.woff2): Material Symbols Outlined, Copyright Google LLC, licensed under the
+Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0). Changes: reduced to the glyphs Lumine uses, with the
+axes fixed to filled, weight 400, optical size 48.
+
+Background music (public/audio/i_think_they_call_this_love.mp3): a short clip of a third-party recording. It is NOT
+part of the Software and is not licensed under the Lumine Source-Available License; it belongs to its rights holders.
+If you run your own deployment, replace it with music you have the right to use.
+
+Lumine is an independent project. It is not affiliated with or endorsed by Supabase, Vercel, Google or any of the
+projects named above. Their names and logos are trademarks of their owners.

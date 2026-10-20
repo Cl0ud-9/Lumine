@@ -1,0 +1,52 @@
+name: Bug report
+description: Something is wrong with a page, the dashboard or the setup
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Before you open this, the **Troubleshooting** section of the
+        [README](https://github.com/Cl0ud-9/Lumine#-troubleshooting) covers the most common causes (a paused Supabase
+        project, emails that never arrive, an icon showing as a word).
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it go wrong?
+      options:
+        - The proposal page (the link someone receives)
+        - The celebration page
+        - The dashboard
+        - Signing up, logging in or resetting a password
+        - Setting up or deploying
+        - Somewhere else
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can it be made to happen again?
+      placeholder: |
+        1. Open the link on my phone
+        2. Tap "No" a few times
+        3. ...
+  - type: textarea
+    id: shot
+    attributes:
+      label: A screenshot of what you see
+      description: Drag it in here. Please hide any link tokens or email addresses you would rather not share.
+  - type: input
+    id: env
+    attributes:
+      label: Browser, device and screen size
+      placeholder: Safari on iPhone 15, portrait
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Messages from the browser console (F12), or what your Supabase project's logs show.
