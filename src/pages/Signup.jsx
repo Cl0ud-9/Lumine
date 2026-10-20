@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import CustomCursor from '../components/CustomCursor';
 import FloatingLabelInput from '../components/FloatingLabelInput';
@@ -70,15 +70,15 @@ const Signup = () => {
                 <div className="floating-orb absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-200 opacity-40" style={{ animationDelay: '-5s' }}></div>
             </div>
 
-            <motion.div
+            <m.main
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="w-full max-w-md relative z-10"
             >
-                <div className="sticker-card rounded-[3rem] p-8">
-                    <div className="text-center mb-8">
-                        <motion.h1
-                            className="font-['Fredoka'] text-4xl font-bold text-[#ff4d7d] mb-2"
+                <div className="sticker-card rounded-[3rem] p-8 [@media(max-height:500px)]:p-4 [@media(max-height:500px)]:rounded-[2rem]">
+                    <div className="text-center mb-8 [@media(max-height:500px)]:mb-3">
+                        <m.h1
+                            className="font-['Fredoka'] text-4xl [@media(max-height:500px)]:text-2xl font-bold text-[#ff4d7d] mb-2 [@media(max-height:500px)]:mb-1"
                             style={{ willChange: "transform", translateZ: 30 }}
                             animate={{ y: [0, -4, 0] }}
                             transition={{
@@ -88,12 +88,12 @@ const Signup = () => {
                                 delay: 0.6
                             }}
                         >
-                            Create Account 💝
-                        </motion.h1>
+                            Create Account<span className="material-symbols-outlined ml-1 align-[-0.12em]" aria-hidden="true">favorite</span>
+                        </m.h1>
                         <p className="font-['Quicksand'] text-gray-600 font-semibold">Start creating romantic proposals</p>
                     </div>
 
-                    <form onSubmit={handleSignup} className="space-y-6">
+                    <form onSubmit={handleSignup} className="space-y-6 [@media(max-height:500px)]:space-y-2">
                         <div>
                             <FloatingLabelInput
                                 label="Email"
@@ -121,7 +121,7 @@ const Signup = () => {
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
                                         aria-label={showPassword ? "Hide password" : "Show password"}
-                                        className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none ${showPassword ? 'text-pink-500' : 'text-gray-400 md:hover:text-pink-500'}`}
+                                        className={`absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 ${showPassword ? 'text-pink-500' : 'text-gray-400 md:hover:text-pink-500'}`}
                                     >
                                         <span className="material-symbols-outlined text-lg" aria-hidden="true">
                                             {showPassword ? 'favorite' : 'favorite_border'}
@@ -146,7 +146,7 @@ const Signup = () => {
                                         type="button"
                                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                         aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                                        className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none ${showConfirmPassword ? 'text-pink-500' : 'text-gray-400 md:hover:text-pink-500'}`}
+                                        className={`absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 ${showConfirmPassword ? 'text-pink-500' : 'text-gray-400 md:hover:text-pink-500'}`}
                                     >
                                         <span className="material-symbols-outlined text-lg" aria-hidden="true">
                                             {showConfirmPassword ? 'favorite' : 'favorite_border'}
@@ -157,7 +157,7 @@ const Signup = () => {
                         </div>
 
                         {error && (
-                            <div role="alert" className="font-['Quicksand'] bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold">
+                            <div role="alert" className="font-['Quicksand'] bg-red-50 text-red-700 px-4 py-3 rounded-xl text-sm font-semibold">
                                 {error}
                             </div>
                         )}
@@ -165,16 +165,16 @@ const Signup = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="bubbly-yes w-full py-4 rounded-[2rem] text-xl font-['Fredoka'] text-white uppercase tracking-wider transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                            className="bubbly-yes w-full py-4 [@media(max-height:500px)]:py-2 rounded-[2rem] text-xl font-['Fredoka'] text-white uppercase tracking-wider transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                         >
                             <span className="flex items-center justify-center gap-2">
                                 {loading ? 'Creating account...' : 'Sign Up'}
-                                {!loading && <span className="material-symbols-outlined text-2xl">favorite</span>}
+                                {!loading && <span aria-hidden="true" className="material-symbols-outlined text-2xl">favorite</span>}
                             </span>
                         </button>
                     </form>
 
-                    <div className="mt-6 text-center">
+                    <div className="mt-6 [@media(max-height:500px)]:mt-3 text-center">
                         <p className="font-['Quicksand'] text-gray-600 font-semibold">
                             Already have an account?{' '}
                             <Link to="/auth/verify" className="text-[#ff4d7d] font-bold hover:underline">
@@ -183,7 +183,7 @@ const Signup = () => {
                         </p>
                     </div>
                 </div>
-            </motion.div>
+            </m.main>
         </div>
     );
 };

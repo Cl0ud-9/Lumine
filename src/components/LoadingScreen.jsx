@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 const LoadingScreen = ({ onComplete }) => {
     // Keep the latest callback in a ref so the 4.5s timer starts once on mount. With onComplete
@@ -19,7 +19,7 @@ const LoadingScreen = ({ onComplete }) => {
     }, []);
 
     return (
-        <motion.div
+        <m.div
             className="fixed inset-0 z-50 bg-background-light font-jakarta overflow-hidden flex flex-col items-center justify-center min-h-screen"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -27,17 +27,17 @@ const LoadingScreen = ({ onComplete }) => {
         >
             {/* Animated Background */}
             <div className="absolute inset-0 z-0 bg-animated-pastel">
-                <span className="material-symbols-outlined floating-heart text-pink-200 text-4xl" style={{ top: '15%', left: '10%', animationDelay: '0s' }}>favorite</span>
-                <span className="material-symbols-outlined floating-heart text-pink-200 text-2xl" style={{ top: '65%', left: '85%', animationDelay: '1s' }}>favorite</span>
-                <span className="material-symbols-outlined floating-heart text-pink-200 text-5xl" style={{ top: '80%', left: '15%', animationDelay: '2s' }}>favorite</span>
-                <span className="material-symbols-outlined floating-heart text-pink-200 text-3xl" style={{ top: '20%', left: '75%', animationDelay: '3s' }}>favorite</span>
+                <span aria-hidden="true" className="material-symbols-outlined floating-heart text-pink-200 text-4xl" style={{ top: '15%', left: '10%', animationDelay: '0s' }}>favorite</span>
+                <span aria-hidden="true" className="material-symbols-outlined floating-heart text-pink-200 text-2xl" style={{ top: '65%', left: '85%', animationDelay: '1s' }}>favorite</span>
+                <span aria-hidden="true" className="material-symbols-outlined floating-heart text-pink-200 text-5xl" style={{ top: '80%', left: '15%', animationDelay: '2s' }}>favorite</span>
+                <span aria-hidden="true" className="material-symbols-outlined floating-heart text-pink-200 text-3xl" style={{ top: '20%', left: '75%', animationDelay: '3s' }}>favorite</span>
             </div>
 
             <main className="relative z-10 flex flex-col items-center justify-center w-full px-6">
                 <div className="flex flex-col items-center space-y-12">
                     <div className="relative animate-heartbeat">
                         <div className="w-36 h-36 md:w-48 md:h-48 glossy-bubble-heart rounded-full flex items-center justify-center">
-                            <span className="material-symbols-outlined text-[72px] md:text-[96px] text-white">
+                            <span aria-hidden="true" className="material-symbols-outlined text-[72px] md:text-[96px] text-white">
                                 favorite
                             </span>
                         </div>
@@ -50,7 +50,7 @@ const LoadingScreen = ({ onComplete }) => {
                     </div>
                 </div>
             </main>
-        </motion.div>
+        </m.div>
     );
 };
 

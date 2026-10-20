@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 
 const CircularTransition = ({ isVisible, onComplete, isMobile }) => {
     // Colors inspired by Ponpon Mania (reference)
@@ -11,13 +11,13 @@ const CircularTransition = ({ isVisible, onComplete, isMobile }) => {
     return (
         <AnimatePresence onExitComplete={onComplete}>
             {isVisible && (
-                <motion.div
+                <m.div
                     className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none" // z-[60] to sit above LoadingScreen (z-50)
                     initial={{ opacity: 1 }}
                     exit={{ opacity: 1 }} // Don't fade out! Let Celebration wipe over it.
                 >
                     {layers.map((layer, index) => (
-                        <motion.div
+                        <m.div
                             key={index}
                             initial={{ scale: 0 }}
                             animate={{ scale: [0, 30] }}
@@ -35,7 +35,7 @@ const CircularTransition = ({ isVisible, onComplete, isMobile }) => {
                             className="w-[10vh] h-[10vh] rounded-full"
                         />
                     ))}
-                </motion.div>
+                </m.div>
             )}
         </AnimatePresence>
     );

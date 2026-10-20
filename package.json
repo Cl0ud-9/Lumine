@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "lint": "eslint . && node scripts/update-icons.mjs --check",
+    "icons": "node scripts/update-icons.mjs",
+    "icons:check": "node scripts/update-icons.mjs --check",
     "preview": "vite preview"
   },
   "dependencies": {

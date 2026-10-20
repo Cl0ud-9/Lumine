@@ -1,5 +1,5 @@
 import { useState, useEffect, forwardRef, useRef } from 'react';
-import { motion, useMotionValue, useSpring, useTransform, useAnimation } from 'framer-motion';
+import { m, useMotionValue, useSpring, useTransform, useAnimation } from 'framer-motion';
 import { useFloatingElements } from '../hooks/useFloatingElements';
 import FloatingParticles from '../components/FloatingParticles';
 import { logger } from '../lib/logger';
@@ -243,7 +243,7 @@ const Celebration = forwardRef((props, ref) => {
     };
 
     return (
-        <motion.div
+        <m.div
             ref={ref}
             initial={{ clipPath: "circle(0% at 50% 50%)" }}
             animate={{ clipPath: "circle(150% at 50% 50%)" }}
@@ -252,13 +252,13 @@ const Celebration = forwardRef((props, ref) => {
                 ease: [0.4, 0, 0.2, 1],
                 delay: 0
             }}
-            className="bg-gradient-mesh font-body min-h-screen w-screen relative overflow-hidden flex items-center justify-center p-4 z-[70]"
+            className="bg-gradient-mesh font-body min-h-screen w-full relative overflow-hidden flex items-center justify-center p-4 [@media(max-height:500px)]:p-2 z-[70]"
         >
 
 
-            <motion.div
+            <m.div
                 style={{ x: layer1X, y: layer1Y }}
-                className="fixed inset-[-5%] pointer-events-none z-0"
+                aria-hidden="true" className="fixed inset-[-5%] pointer-events-none z-0"
             >
                 {/* Note: .floating-orb's own CSS blur(60px) wins the cascade over any
                     blur-[…] utility placed on the same element (equal specificity, later
@@ -267,31 +267,31 @@ const Celebration = forwardRef((props, ref) => {
                 <div className="floating-orb absolute bottom-0 right-0 w-[40rem] h-[40rem] bg-purple-200 opacity-20" style={{ animationDelay: '-5s' }} />
 
                 <FloatingParticles elements={elements} prefersReducedMotion={prefersReducedMotion} heartVariant="filled" />
-            </motion.div>
+            </m.div>
 
             {/* LAYER 2: Mid Floating Elements */}
-            <motion.div
+            <m.div
                 style={{ x: layer2X, y: layer2Y }}
-                className="fixed inset-[-10%] pointer-events-none z-10"
+                aria-hidden="true" className="fixed inset-[-10%] pointer-events-none z-10"
             >
                 <div className="absolute top-[15%] left-[10%] text-pink-400 opacity-20">
-                    <span className="material-symbols-outlined text-8xl">auto_awesome</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-8xl">auto_awesome</span>
                 </div>
                 <div className="absolute bottom-[25%] right-[15%] text-purple-400 opacity-15">
-                    <span className="material-symbols-outlined text-[100px]">favorite</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[100px]">favorite</span>
                 </div>
                 <div className="absolute top-1/2 right-[20%] opacity-30 flex gap-2">
-                    <span className="material-symbols-outlined text-2xl text-yellow-300">star</span>
-                    <span className="material-symbols-outlined text-lg text-pink-200 mt-4">star</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-2xl text-yellow-300">star</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-lg text-pink-200 mt-4">star</span>
                 </div>
-            </motion.div>
+            </m.div>
 
             <main className="relative z-20 w-full max-w-2xl px-6 perspective-1000">
-                <motion.div
+                <m.div
                     style={{ x: layer4X, y: layer4Y }}
                     className="absolute inset-0 pointer-events-none z-[80]"
                 >
-                    <motion.div
+                    <m.div
                         initial={{ scale: 0, rotate: 30, opacity: 0 }}
                         animate={musicControls}
                         onClick={() => {
@@ -306,13 +306,13 @@ const Celebration = forwardRef((props, ref) => {
                         style={{ right: '0', willChange: "transform" }}
                     >
                         <div className="bg-white p-3 rounded-full shadow-lg border-2 border-pink-100 text-pink-500 hover:shadow-xl transition-all">
-                            <span className="material-symbols-outlined text-xl md:text-2xl">
+                            <span aria-hidden="true" className="material-symbols-outlined text-xl md:text-2xl">
                                 {isMuted ? 'music_off' : 'music_note'}
                             </span>
                         </div>
-                    </motion.div>
+                    </m.div>
 
-                    <motion.div
+                    <m.div
                         initial={{ scale: 0, rotate: -30, opacity: 0 }}
                         animate={controls}
                         className="absolute -top-4 left-0 md:-top-6 md:-left-2 pointer-events-auto cursor-pointer"
@@ -340,11 +340,11 @@ const Celebration = forwardRef((props, ref) => {
                         }}
                     >
                         <div className="bg-white p-3 rounded-full shadow-lg border-2 border-pink-100 select-none hover:shadow-xl transition-shadow relative">
-                            <span className="material-symbols-outlined text-primary-pink text-3xl">celebration</span>
+                            <span aria-hidden="true" className="material-symbols-outlined text-primary-pink text-3xl">celebration</span>
 
                             {/* Pops originating from this specific emoji */}
                             {celebrationPops.map(pop => (
-                                <motion.div
+                                <m.div
                                     key={pop.id}
                                     initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
                                     animate={{
@@ -358,18 +358,18 @@ const Celebration = forwardRef((props, ref) => {
                                     onAnimationComplete={() => setCelebrationPops(prev => prev.filter(h => h.id !== pop.id))}
                                     className="absolute left-1/2 top-1/2 pointer-events-none"
                                 >
-                                    <span
+                                    <span aria-hidden="true"
                                         className="material-symbols-outlined text-xl"
                                         style={{ color: pop.color, marginLeft: '-0.5em', marginTop: '-0.5em', display: 'block' }}
                                     >
                                         {pop.icon}
                                     </span>
-                                </motion.div>
+                                </m.div>
                             ))}
                         </div>
-                    </motion.div>
+                    </m.div>
 
-                    <motion.div
+                    <m.div
                         initial={{ scale: 0, rotate: 30, opacity: 0 }}
                         animate={yesControls}
                         className="absolute -bottom-2 -right-2 md:-bottom-2 md:-right-6 pointer-events-auto cursor-pointer"
@@ -396,12 +396,12 @@ const Celebration = forwardRef((props, ref) => {
                         }}
                     >
                         <div className="bg-white px-4 py-2 rounded-full shadow-lg border-2 border-purple-100 flex items-center gap-2 select-none hover:shadow-xl transition-shadow relative">
-                            <span className="material-symbols-outlined text-accent-purple text-xl">magic_button</span>
+                            <span aria-hidden="true" className="material-symbols-outlined text-accent-purple text-xl">magic_button</span>
                             <span className="font-fredoka text-accent-purple text-xs font-bold tracking-widest uppercase">YES!</span>
 
                             {/* Pops originating from YES button */}
                             {yesPops.map(pop => (
-                                <motion.div
+                                <m.div
                                     key={pop.id}
                                     initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
                                     animate={{
@@ -423,13 +423,13 @@ const Celebration = forwardRef((props, ref) => {
                                     >
                                         <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />
                                     </svg>
-                                </motion.div>
+                                </m.div>
                             ))}
                         </div>
-                    </motion.div>
-                </motion.div>
+                    </m.div>
+                </m.div>
 
-                <motion.div
+                <m.div
                     initial={{ scale: 0.8, y: 50 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     style={{
@@ -452,14 +452,13 @@ const Celebration = forwardRef((props, ref) => {
                         recomputed from mouse position every frame - box-shadow isn't a
                         compositor-only property, so animating it forced a full repaint on
                         every pointer move and was a major contributor to the click-time jank. */}
-                    <motion.div
-                        className="sticker-card rounded-[3rem] p-6 md:p-16 text-center relative overflow-hidden flex flex-col items-center w-full"
+                    <m.div
+                        className="sticker-card sticker-card--flat rounded-[3rem] p-6 md:p-16 [@media(max-height:500px)]:p-3 text-center relative overflow-hidden flex flex-col items-center w-full"
                     >
 
-                        <div className="mb-6 lg:mb-4 flex justify-center relative select-none">
+                        <div className="mb-6 lg:mb-4 [@media(max-height:500px)]:mb-1 flex justify-center relative select-none">
                             <div className="relative z-50">
-                                <motion.div
-                                    layoutId="hero-heart"
+                                <m.div
                                     whileTap={{ scale: 0.9 }}
                                     animate={{
                                         scale: isHolding ? 0.95 : 1,
@@ -474,14 +473,14 @@ const Celebration = forwardRef((props, ref) => {
                                     className="cursor-pointer relative z-20"
                                     style={{ translateZ: 50, touchAction: 'none' }}
                                 >
-                                    <motion.div
+                                    <m.div
                                         animate={{
                                             scale: [1, 1.05, 1]
                                         }}
                                         transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                                        className="glossy-heart w-24 h-24 rounded-full flex items-center justify-center relative"
+                                        className="glossy-heart w-24 h-24 [@media(max-height:500px)]:w-14 [@media(max-height:500px)]:h-14 rounded-full flex items-center justify-center relative"
                                     >
-                                        <span className="material-symbols-outlined text-white text-5xl select-none">favorite</span>
+                                        <span aria-hidden="true" className="material-symbols-outlined text-white text-5xl [@media(max-height:500px)]:text-3xl select-none">favorite</span>
 
                                         {/* Subtle Glow - clipped by its own rounded-full/overflow-hidden wrapper
                                             instead of living on .glossy-heart itself: animated transform +
@@ -490,17 +489,17 @@ const Celebration = forwardRef((props, ref) => {
                                             re-rasterized every frame the scale animation ticks). Keeping the
                                             filter-bearing element unclipped fixes the flicker. */}
                                         <div className="absolute inset-0 rounded-full overflow-hidden pointer-events-none">
-                                            <motion.div
+                                            <m.div
                                                 className="absolute inset-0 bg-white/20 mix-blend-overlay"
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: Math.min(heat / 200, 0.3) }}
                                             />
                                         </div>
-                                    </motion.div>
-                                </motion.div>
+                                    </m.div>
+                                </m.div>
                             </div>
 
-                            <motion.div
+                            <m.div
                                 initial={{ scale: 0, opacity: 0.6 }}
                                 animate={{ scale: 2.2, opacity: 0 }}
                                 transition={{ duration: 0.9, ease: "easeOut", delay: 0.5 }}
@@ -508,54 +507,54 @@ const Celebration = forwardRef((props, ref) => {
                             />
                         </div>
 
-                        <motion.div
+                        <m.div
                             initial={{ y: 20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ delay: 0.3, duration: 0.8 }}
                         >
-                            <motion.h1
+                            <m.h1
                                 animate={{ y: [0, -4, 0] }}
                                 transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
-                                className="text-3xl md:text-6xl font-['Fredoka'] font-bold text-[#ff4d7d] leading-tight mb-6 tracking-tight whitespace-pre-line"
+                                className="text-3xl max-[359px]:text-[1.7rem] md:text-6xl [@media(max-height:500px)]:text-2xl font-['Fredoka'] font-bold text-[#ff4d7d] leading-tight mb-6 [@media(max-height:500px)]:mb-1 tracking-tight whitespace-pre-line"
                                 style={{ willChange: "transform", fontWeight: 700, translateZ: 40 }}
                             >
                                 {phrase.title}
-                            </motion.h1>
-                        </motion.div>
+                            </m.h1>
+                        </m.div>
 
-                        <motion.div
+                        <m.div
                             initial={{ y: 20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ delay: 0.5, duration: 0.8 }}
                         >
-                            <motion.p
+                            <m.p
                                 animate={{ y: [0, -4, 0] }}
                                 transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut", delay: 0.6 }}
-                                className="text-xl md:text-3xl text-pink-500/80 font-['Pacifico'] italic"
+                                className="text-xl md:text-3xl [@media(max-height:500px)]:text-base text-pink-500/80 font-['Pacifico'] italic"
                                 style={{ willChange: "transform", translateZ: 30 }}
                             >
                                 {phrase.subtitle}
-                            </motion.p>
-                        </motion.div>
+                            </m.p>
+                        </m.div>
 
-                        <motion.div
+                        <m.div
                             initial={{ scale: 0, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ delay: 0.7, duration: 0.5 }}
-                            className="mt-16 flex justify-center gap-4"
+                            className="mt-16 [@media(max-height:500px)]:mt-3 flex justify-center gap-4"
                             style={{ translateZ: 15 }}
                         >
                             <div className="w-3 h-3 bg-pink-400 rounded-full animate-pulse" />
                             <div className="w-3 h-3 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
                             <div className="w-3 h-3 bg-pink-400 rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
-                        </motion.div>
-                    </motion.div>
+                        </m.div>
+                    </m.div>
 
 
 
                     <div className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{ zIndex: 100 }}>
                         {popHearts.map(heart => (
-                            <motion.div
+                            <m.div
                                 key={heart.id}
                                 initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
                                 animate={{
@@ -573,42 +572,42 @@ const Celebration = forwardRef((props, ref) => {
                                     translateZ: 60,
                                 }}
                             >
-                                <span
+                                <span aria-hidden="true"
                                     className="material-symbols-outlined text-3xl"
                                     style={{ color: heart.color }}
                                 >
                                     favorite
                                 </span>
-                            </motion.div>
+                            </m.div>
                         ))}
                     </div>
-                </motion.div>
+                </m.div>
             </main>
 
 
-            <motion.div
+            <m.div
                 style={{ x: layer4X, y: layer4Y }}
-                className="fixed inset-[-15%] pointer-events-none z-30"
+                aria-hidden="true" className="fixed inset-[-15%] pointer-events-none z-30"
             >
                 <div className="absolute top-[10%] right-[15%] text-pink-400/10 blur-xl">
-                    <span className="material-symbols-outlined text-[200px] fill-1">favorite</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[200px]">favorite</span>
                 </div>
                 <div className="absolute bottom-[5%] left-[5%] text-purple-400/5 blur-2xl">
-                    <span className="material-symbols-outlined text-[300px] fill-1">heart_plus</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[300px]">heart_plus</span>
                 </div>
-            </motion.div>
+            </m.div>
 
-            <div className="fixed bottom-8 md:bottom-12 left-0 w-full z-40 text-center pointer-events-none">
-                <motion.p
+            <div aria-hidden="true" className="fixed bottom-8 md:bottom-12 left-0 w-full z-40 text-center pointer-events-none">
+                <m.p
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 0.5, y: 0 }}
                     transition={{ delay: 1.5, duration: 1.2 }}
                     className="text-sm font-display font-bold tracking-[0.3em] text-[#881337] uppercase"
                 >
                     Now let’s make it special
-                </motion.p>
+                </m.p>
             </div>
-        </motion.div >
+        </m.div >
     );
 });
 

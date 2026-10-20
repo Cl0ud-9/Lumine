@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import CustomCursor from '../components/CustomCursor';
 import HelpModal from '../components/HelpModal';
@@ -461,7 +461,7 @@ const Dashboard = () => {
                 <div className="text-center relative z-10">
                     <div className="relative animate-heartbeat mb-8">
                         <div className="w-24 h-24 md:w-32 md:h-32 glossy-bubble-heart rounded-full flex items-center justify-center mx-auto">
-                            <span className="material-symbols-outlined text-[48px] md:text-[64px] text-white">
+                            <span aria-hidden="true" className="material-symbols-outlined text-[48px] md:text-[64px] text-white">
                                 favorite
                             </span>
                         </div>
@@ -471,7 +471,7 @@ const Dashboard = () => {
                     {/* Progress Bar */}
                     <div className="max-w-xs mx-auto">
                         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <motion.div
+                            <m.div
                                 className="h-full bg-gradient-to-r from-pink-400 via-purple-400 to-pink-400 rounded-full"
                                 initial={{ width: '0%' }}
                                 animate={{ width: `${loadProgress}%` }}
@@ -501,44 +501,44 @@ const Dashboard = () => {
                 onClose={closeToast}
             />
 
-            <div className="max-w-6xl mx-auto relative z-10">
+            <main className="max-w-6xl mx-auto relative z-10">
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
                     <div>
-                        <motion.h1
+                        <m.h1
                             className="font-['Fredoka'] text-2xl sm:text-3xl md:text-4xl font-bold text-[#ff4d7d] mb-1 sm:mb-2"
                             style={{ willChange: "transform", translateZ: 30 }}
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                         >
                             <span className="flex items-center gap-2">
-                                <img src="/favicon.png" alt="Lumine Logo" className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain" />
+                                <img src="/favicon.png" alt="" width="48" height="48" decoding="async" className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain" />
                                 Lumine Dashboard
                             </span>
-                        </motion.h1>
+                        </m.h1>
                         <p className="font-['Quicksand'] text-xs sm:text-base text-gray-600 font-semibold">
                             Manage your romantic proposals
                         </p>
                     </div>
                     <div className="flex gap-3 sm:gap-4 w-full sm:w-auto">
-                        <motion.button
+                        <m.button
                             whileHover={{ scale: 1.05, rotate: 2 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setShowHelpModal(true)}
                             className="flex-1 sm:flex-none justify-center font-['Quicksand'] px-4 sm:px-6 py-2 bg-white/40 backdrop-blur-md border-[3px] border-white shadow-lg rounded-2xl text-pink-500 font-bold flex items-center gap-2 hover:bg-white/60 transition-all text-sm sm:text-base"
                             style={{ transform: "rotate(1deg)" }}
                         >
-                            <span className="material-symbols-outlined text-lg sm:text-xl fill-1">lightbulb</span>
+                            <span aria-hidden="true" className="material-symbols-outlined text-lg sm:text-xl">lightbulb</span>
                             <span>Guide</span>
-                        </motion.button>
-                        <motion.button
+                        </m.button>
+                        <m.button
                             whileHover={{ scale: 1.05, rotate: -2 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={handleLogout}
                             className="flex-1 sm:flex-none justify-center font-['Quicksand'] px-4 sm:px-6 py-2 sticker-card rounded-2xl text-gray-600 font-bold hover:text-gray-800 transition-all text-sm sm:text-base"
                         >
                             Logout
-                        </motion.button>
+                        </m.button>
                     </div>
                 </div>
 
@@ -546,18 +546,18 @@ const Dashboard = () => {
 
                 {/* Summary Stats */}
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[3rem] p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-fuchsia-400 to-fuchsia-500 shadow-xl"
                     >
                         <div className="flex items-center justify-between mb-2 sm:mb-3">
                             <div className="font-['Quicksand'] text-white/90 text-[10px] sm:text-xs lg:text-sm font-semibold uppercase tracking-wide">Total URLs</div>
-                            <span className="material-symbols-outlined text-lg sm:text-2xl lg:text-3xl text-white/80 -rotate-45">link</span>
+                            <span aria-hidden="true" className="material-symbols-outlined text-lg sm:text-2xl lg:text-3xl text-white/80 -rotate-45">link</span>
                         </div>
                         <div className="font-['Fredoka'] text-xl sm:text-3xl lg:text-4xl font-bold text-white">{stats.total}</div>
-                    </motion.div>
-                    <motion.div
+                    </m.div>
+                    <m.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
@@ -565,11 +565,11 @@ const Dashboard = () => {
                     >
                         <div className="flex items-center justify-between mb-2 sm:mb-3">
                             <div className="font-['Quicksand'] text-white/90 text-[10px] sm:text-xs lg:text-sm font-semibold uppercase tracking-wide">Success Rate</div>
-                            <span className="material-symbols-outlined text-lg sm:text-2xl lg:text-3xl text-white/80">favorite</span>
+                            <span aria-hidden="true" className="material-symbols-outlined text-lg sm:text-2xl lg:text-3xl text-white/80">favorite</span>
                         </div>
                         <div className="font-['Fredoka'] text-xl sm:text-3xl lg:text-4xl font-bold text-white">{stats.successRate}%</div>
-                    </motion.div>
-                    <motion.div
+                    </m.div>
+                    <m.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
@@ -577,36 +577,36 @@ const Dashboard = () => {
                     >
                         <div className="flex items-center justify-between mb-2 sm:mb-3">
                             <div className="font-['Quicksand'] text-white/90 text-[10px] sm:text-xs lg:text-sm font-semibold uppercase tracking-wide">Fastest Yes</div>
-                            <span className="material-symbols-outlined text-lg sm:text-2xl lg:text-3xl text-white/80">bolt</span>
+                            <span aria-hidden="true" className="material-symbols-outlined text-lg sm:text-2xl lg:text-3xl text-white/80">bolt</span>
                         </div>
                         <div className="font-['Fredoka'] text-xl sm:text-3xl lg:text-4xl font-bold text-white">{stats.fastestYes}</div>
-                    </motion.div>
+                    </m.div>
                 </div>
 
                 {/* Create Button */}
-                <motion.button
+                <m.button
                     whileHover={{ scale: 1.01, y: -2 }}
                     whileTap={{ scale: 0.99 }}
                     onClick={() => setShowCreateForm(true)}
                     className="bubbly-yes w-full mb-8 sm:mb-10 py-3 sm:py-5 rounded-[2rem] sm:rounded-[2.5rem] font-['Fredoka'] text-white text-base sm:text-lg uppercase tracking-wider shadow-2xl hover:shadow-pink-200 transition-all font-semibold"
                 >
                     <span className="flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined text-xl sm:text-2xl">add_circle</span>
+                        <span aria-hidden="true" className="material-symbols-outlined text-xl sm:text-2xl">add_circle</span>
                         Create New Proposal URL
                     </span>
-                </motion.button>
+                </m.button>
 
                 {/* Create Form Modal */}
                 <AnimatePresence>
                     {showCreateForm && (
-                        <motion.div
+                        <m.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
                             onClick={closeCreateForm}
                         >
-                            <motion.div
+                            <m.div
                                 initial={{ scale: 0.9, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 exit={{ scale: 0.9, opacity: 0 }}
@@ -614,11 +614,12 @@ const Dashboard = () => {
                                 role="dialog"
                                 aria-modal="true"
                                 aria-label="Create new proposal URL"
-                                className="bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 rounded-[3rem] p-8 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl border-4 border-white"
+                                className="bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 rounded-[3rem] max-w-md w-full shadow-2xl border-4 border-white overflow-hidden"
                             >
+                                <div className="modal-scroll p-6 sm:p-8 [@media(max-height:500px)]:p-4">
                                 <h2 className="font-['Fredoka'] text-3xl font-bold mb-6 text-[#ff4d7d] flex items-center gap-2">
                                     Create New URL
-                                    <span className="material-symbols-outlined text-3xl">favorite</span>
+                                    <span aria-hidden="true" className="material-symbols-outlined text-3xl">favorite</span>
                                 </h2>
                                 <form onSubmit={createInvite}>
                                     <FloatingLabelInput
@@ -650,22 +651,23 @@ const Dashboard = () => {
                                         </button>
                                     </div>
                                 </form>
-                            </motion.div>
-                        </motion.div>
+                                </div>
+                            </m.div>
+                        </m.div>
                     )}
                 </AnimatePresence>
 
                 {/* Delete Confirmation Modal */}
                 <AnimatePresence>
                     {deleteModal.show && (
-                        <motion.div
+                        <m.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
                             onClick={closeDeleteModal}
                         >
-                            <motion.div
+                            <m.div
                                 initial={{ scale: 0.95, opacity: 0, rotate: -2 }}
                                 animate={{ scale: 1, opacity: 1, rotate: 0 }}
                                 exit={{ scale: 0.95, opacity: 0 }}
@@ -673,58 +675,60 @@ const Dashboard = () => {
                                 role="alertdialog"
                                 aria-modal="true"
                                 aria-label="Confirm deleting this URL"
-                                className="bg-white/90 backdrop-blur-md rounded-[2.5rem] p-8 max-w-sm w-full max-h-[90vh] overflow-y-auto shadow-2xl border-4 border-white text-center relative"
+                                className="bg-white/95 rounded-[2.5rem] max-w-sm w-full shadow-2xl border-4 border-white text-center relative overflow-hidden"
                             >
-                                <div className="mb-6 flex justify-center">
-                                    <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
-                                        <span className="material-symbols-outlined text-4xl text-red-500">heart_broken</span>
+                                <div className="modal-scroll p-6 sm:p-8 [@media(max-height:500px)]:p-4">
+                                <div className="mb-6 [@media(max-height:500px)]:mb-3 flex justify-center">
+                                    <div className="w-20 h-20 [@media(max-height:500px)]:w-12 [@media(max-height:500px)]:h-12 bg-red-100 rounded-full flex items-center justify-center">
+                                        <span aria-hidden="true" className="material-symbols-outlined text-4xl [@media(max-height:500px)]:text-2xl text-red-500">heart_broken</span>
                                     </div>
                                 </div>
-                                <motion.h3
+                                <m.h2
                                     className="font-['Fredoka'] text-2xl font-bold text-gray-800 mb-3"
                                     style={{ willChange: "transform", translateZ: 30 }}
                                     animate={{ y: [0, -4, 0] }}
                                     transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                                 >
-                                    Take it back? 🙈
-                                </motion.h3>
+                                    Take it back?
+                                </m.h2>
                                 <p className="font-['Quicksand'] text-gray-500 font-semibold mb-8 leading-relaxed">
-                                    The link for <span className="text-pink-500 font-bold">{deleteModal.name}</span> will disappear forever. Like it never happened! 🤫
+                                    The link for <span className="text-pink-500 font-bold">{deleteModal.name}</span> will disappear forever. Like it never happened!
                                 </p>
                                 <div className="flex gap-3">
-                                    <motion.button
+                                    <m.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={closeDeleteModal}
                                         className="flex-1 py-3 rounded-2xl font-['Quicksand'] font-bold text-gray-600 bg-gray-100 border-2 border-transparent hover:bg-white hover:border-pink-200 transition-all shadow-sm"
                                     >
                                         Nah, keep it
-                                    </motion.button>
-                                    <motion.button
+                                    </m.button>
+                                    <m.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={confirmDelete}
                                         className="flex-1 py-3 rounded-2xl font-['Fredoka'] font-bold text-white bubbly-delete text-lg tracking-wide uppercase shadow-lg hover:shadow-red-200"
                                     >
                                         Vanish it
-                                    </motion.button>
+                                    </m.button>
                                 </div>
-                            </motion.div>
-                        </motion.div>
+                                </div>
+                            </m.div>
+                        </m.div>
                     )}
                 </AnimatePresence>
 
                 {/* Delete Account Confirmation Modal */}
                 <AnimatePresence>
                     {deleteAccountModal && (
-                        <motion.div
+                        <m.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
                             onClick={closeDeleteAccountModal}
                         >
-                            <motion.div
+                            <m.div
                                 initial={{ scale: 0.95, opacity: 0, rotate: 2 }}
                                 animate={{ scale: 1, opacity: 1, rotate: 0 }}
                                 exit={{ scale: 0.95, opacity: 0 }}
@@ -732,44 +736,46 @@ const Dashboard = () => {
                                 role="alertdialog"
                                 aria-modal="true"
                                 aria-label="Confirm deleting your account"
-                                className="bg-white/90 backdrop-blur-md rounded-[2.5rem] p-8 max-w-sm w-full max-h-[90vh] overflow-y-auto shadow-2xl border-4 border-red-50 text-center relative"
+                                className="bg-white/95 rounded-[2.5rem] max-w-sm w-full shadow-2xl border-4 border-red-50 text-center relative overflow-hidden"
                             >
-                                <div className="mb-6 flex justify-center">
-                                    <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
-                                        <span className="material-symbols-outlined text-4xl text-red-500">warning</span>
+                                <div className="modal-scroll p-6 sm:p-8 [@media(max-height:500px)]:p-4">
+                                <div className="mb-6 [@media(max-height:500px)]:mb-3 flex justify-center">
+                                    <div className="w-20 h-20 [@media(max-height:500px)]:w-12 [@media(max-height:500px)]:h-12 bg-red-100 rounded-full flex items-center justify-center">
+                                        <span aria-hidden="true" className="material-symbols-outlined text-4xl [@media(max-height:500px)]:text-2xl text-red-500">warning</span>
                                     </div>
                                 </div>
-                                <motion.h3
+                                <m.h2
                                     className="font-['Fredoka'] text-2xl font-bold text-gray-800 mb-3"
                                     style={{ willChange: "transform", translateZ: 30 }}
                                     animate={{ y: [0, -4, 0] }}
                                     transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                                 >
-                                    Breaking up with us? 💔
-                                </motion.h3>
+                                    Breaking up with us?
+                                </m.h2>
                                 <p className="font-['Quicksand'] text-gray-500 font-semibold mb-8 leading-relaxed">
-                                    We{"'"}ll miss you! All your love letters and links will be lost in space forever. Are you sure? 🚀
+                                    We{"'"}ll miss you! All your love letters and links will be lost in space forever. Are you sure?
                                 </p>
                                 <div className="flex gap-3">
-                                    <motion.button
+                                    <m.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={closeDeleteAccountModal}
                                         className="flex-1 py-3 rounded-2xl font-['Quicksand'] font-bold text-gray-600 bg-gray-100 border-2 border-transparent hover:bg-white hover:border-red-200 transition-all shadow-sm"
                                     >
                                         I{"'"}ll stay
-                                    </motion.button>
-                                    <motion.button
+                                    </m.button>
+                                    <m.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={handleDeleteAccount}
                                         className="flex-1 py-3 rounded-2xl font-['Fredoka'] font-bold text-white bubbly-delete text-lg tracking-wide uppercase shadow-lg hover:shadow-red-200"
                                     >
                                         Delete Forever
-                                    </motion.button>
+                                    </m.button>
                                 </div>
-                            </motion.div>
-                        </motion.div>
+                                </div>
+                            </m.div>
+                        </m.div>
                     )}
                 </AnimatePresence>
 
@@ -781,7 +787,7 @@ const Dashboard = () => {
                             <div className="flex items-center gap-3 mb-5">
                                 <div className="h-1 w-12 bg-gradient-to-r from-gray-300 to-transparent rounded-full"></div>
                                 <h2 className="font-['Fredoka'] text-2xl font-bold text-gray-700 flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-2xl text-gray-500">mail</span> <span>Waiting</span>
+                                    <span aria-hidden="true" className="material-symbols-outlined text-2xl text-gray-500">mail</span> <span>Waiting</span>
                                     <span className="text-sm font-normal bg-gray-100 text-gray-600 px-3 py-1 rounded-full">{waitingInvites.length}</span>
                                 </h2>
                                 <div className="flex-1 h-1 bg-gradient-to-r from-transparent to-gray-200 rounded-full"></div>
@@ -811,7 +817,7 @@ const Dashboard = () => {
                             <div className="flex items-center gap-3 mb-5">
                                 <div className="h-1 w-12 bg-gradient-to-r from-yellow-400 to-transparent rounded-full"></div>
                                 <h2 className="font-['Fredoka'] text-2xl font-bold text-gray-700 flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-2xl text-yellow-600">visibility</span> <span>Pending</span>
+                                    <span aria-hidden="true" className="material-symbols-outlined text-2xl text-yellow-600">visibility</span> <span>Pending</span>
                                     <span className="text-sm font-normal bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full">{pendingInvites.length}</span>
                                 </h2>
                                 <div className="flex-1 h-1 bg-gradient-to-r from-transparent to-yellow-200 rounded-full"></div>
@@ -841,7 +847,7 @@ const Dashboard = () => {
                             <div className="flex items-center gap-3 mb-5">
                                 <div className="h-1 w-12 bg-gradient-to-r from-pink-500 to-transparent rounded-full"></div>
                                 <h2 className="font-['Fredoka'] text-2xl font-bold text-gray-700 flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-2xl text-pink-500">favorite</span> <span>Yes!</span>
+                                    <span aria-hidden="true" className="material-symbols-outlined text-2xl text-pink-500">favorite</span> <span>Yes!</span>
                                     <span className="text-sm font-normal bg-pink-100 text-pink-700 px-3 py-1 rounded-full">{yesInvites.length}</span>
                                 </h2>
                                 <div className="flex-1 h-1 bg-gradient-to-r from-transparent to-pink-200 rounded-full"></div>
@@ -868,27 +874,27 @@ const Dashboard = () => {
 
                     {/* Empty State */}
                     {invites.length === 0 && (
-                        <motion.div
+                        <m.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             className="text-center py-20"
                         >
-                            <span className="material-symbols-outlined text-8xl text-gray-300 mb-6">mail</span>
+                            <span aria-hidden="true" className="material-symbols-outlined text-8xl text-gray-300 mb-6">mail</span>
                             <div className="font-['Fredoka'] text-2xl font-bold text-gray-700 mb-2">No URLs Yet</div>
                             <div className="font-['Quicksand'] text-gray-500 font-semibold">Create your first romantic proposal above!</div>
-                        </motion.div>
+                        </m.div>
                     )}
                 </div>
 
                 {/* Danger Zone */}
                 <div className="mt-12 sm:mt-16 pt-8 border-t-2 border-red-100">
                     <h3 className="font-['Fredoka'] text-xl font-bold text-red-500 mb-4 flex items-center gap-2">
-                        <span className="material-symbols-outlined">warning</span> Danger Zone
+                        <span aria-hidden="true" className="material-symbols-outlined">warning</span> Danger Zone
                     </h3>
                     <div className="bg-red-50 rounded-[2rem] p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-2 border-red-100">
                         <div>
-                            <h4 className="font-['Fredoka'] text-lg font-bold text-red-500 mb-1">Break up with us? 💔</h4>
-                            <p className="font-['Quicksand'] text-sm text-red-400 font-semibold max-w-md">
+                            <h4 className="font-['Fredoka'] text-lg font-bold text-red-700 mb-1">Break up with us? 💔</h4>
+                            <p className="font-['Quicksand'] text-sm text-red-700 font-semibold max-w-md">
                                 We get it, sometimes things just don{"'"}t work out. This will delete your account and all data. No hard feelings! (But it{"'"}s permanent!)
                             </p>
                         </div>
@@ -900,7 +906,7 @@ const Dashboard = () => {
                         </button>
                     </div>
                 </div>
-            </div>
+            </main>
         </div>
     );
 };
@@ -937,7 +943,7 @@ const InviteCard = memo(({ invite, onCopy, onDelete, formatDateTime, formatRelat
     const [showVisitDetails, setShowVisitDetails] = useState(false);
 
     return (
-        <motion.div
+        <m.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             whileHover={{ y: -4 }}
@@ -964,15 +970,15 @@ const InviteCard = memo(({ invite, onCopy, onDelete, formatDateTime, formatRelat
                         }`}>
                         {isYes ? (
                             <span className="flex items-center gap-1">
-                                <span className="material-symbols-outlined text-sm">favorite</span> Yes!
+                                <span aria-hidden="true" className="material-symbols-outlined text-sm">favorite</span> Yes!
                             </span>
                         ) : isPending ? (
                             <span className="flex items-center gap-1">
-                                <span className="material-symbols-outlined text-sm">visibility</span> Opened
+                                <span aria-hidden="true" className="material-symbols-outlined text-sm">visibility</span> Opened
                             </span>
                         ) : (
                             <span className="flex items-center gap-1">
-                                <span className="material-symbols-outlined text-sm">mail</span> Waiting
+                                <span aria-hidden="true" className="material-symbols-outlined text-sm">mail</span> Waiting
                             </span>
                         )}
                     </span>
@@ -998,14 +1004,14 @@ const InviteCard = memo(({ invite, onCopy, onDelete, formatDateTime, formatRelat
                         <div className="font-['Quicksand'] text-xs text-gray-500 font-semibold">Visits</div>
                         <div className="font-['Fredoka'] text-sm font-bold text-gray-800">{invite.total_visits}</div>
                     </div>
-                    <motion.span
+                    <m.span
                         animate={{ rotate: showVisitDetails ? 180 : 0 }}
                         transition={{ duration: 0.2 }}
                         className="material-symbols-outlined text-gray-400 text-lg ml-0.5"
                         aria-hidden="true"
                     >
                         expand_more
-                    </motion.span>
+                    </m.span>
                 </button>
 
                 {(isPending || isYes) && invite.first_opened_at && (
@@ -1028,7 +1034,7 @@ const InviteCard = memo(({ invite, onCopy, onDelete, formatDateTime, formatRelat
             {/* Expandable Visit Timeline */}
             <AnimatePresence>
                 {showVisitDetails && invite.visit_timestamps && invite.visit_timestamps.length > 0 && (
-                    <motion.div
+                    <m.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
@@ -1065,8 +1071,8 @@ const InviteCard = memo(({ invite, onCopy, onDelete, formatDateTime, formatRelat
                                         <span className="text-gray-700 font-semibold">
                                             Clicked {"\""}No{"\""} <span className="text-pink-600 font-bold">{invite.no_clicks}</span> time{invite.no_clicks !== 1 ? 's' : ''}!
                                         </span>
-                                        {invite.no_clicks > 10 && <span className="material-symbols-outlined text-lg text-yellow-500">sentiment_satisfied</span>}
-                                        {invite.no_clicks > 20 && <span className="material-symbols-outlined text-lg text-yellow-600">sentiment_very_satisfied</span>}
+                                        {invite.no_clicks > 10 && <span aria-hidden="true" className="material-symbols-outlined text-lg text-yellow-500">sentiment_satisfied</span>}
+                                        {invite.no_clicks > 20 && <span aria-hidden="true" className="material-symbols-outlined text-lg text-yellow-600">sentiment_very_satisfied</span>}
                                     </div>
                                 </div>
                             )}
@@ -1081,7 +1087,7 @@ const InviteCard = memo(({ invite, onCopy, onDelete, formatDateTime, formatRelat
                                         <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
                                             {[...invite.yes_timestamps].reverse().map((timestamp, index) => (
                                                 <div key={index} className="flex items-center gap-2 text-sm">
-                                                    <span className="material-symbols-outlined text-xs text-pink-300">favorite</span>
+                                                    <span aria-hidden="true" className="material-symbols-outlined text-xs text-pink-300">favorite</span>
                                                     <span className="text-gray-600 font-medium text-xs">
                                                         {formatDateTime(timestamp)}
                                                     </span>
@@ -1097,7 +1103,7 @@ const InviteCard = memo(({ invite, onCopy, onDelete, formatDateTime, formatRelat
                                 </div>
                             )}
                         </div>
-                    </motion.div>
+                    </m.div>
                 )}
             </AnimatePresence>
 
@@ -1154,7 +1160,7 @@ const InviteCard = memo(({ invite, onCopy, onDelete, formatDateTime, formatRelat
             >
                 Copy URL
             </button>
-        </motion.div>
+        </m.div>
     );
 });
 

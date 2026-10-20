@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion, useMotionValue } from 'framer-motion';
+import { m, useMotionValue } from 'framer-motion';
 import heartCursor from '../assets/cursors/heart-cursor.png';
-import pointerCursor from '../assets/cursors/pointer-cursor.png';
+import gloveCursor from '../assets/cursors/glove-cursor.png';
 
 // Trail "worm" - each line chases the point ahead of it with simple lerp easing.
 // Rendered via direct DOM attribute writes inside a single requestAnimationFrame loop
@@ -10,15 +10,32 @@ import pointerCursor from '../assets/cursors/pointer-cursor.png';
 // perf win in the app since CustomCursor is mounted for the whole proposal/celebration flow.
 const TRAIL_LENGTH = 24;
 const TRAIL_EASE = 0.5;
+// Hard cap on how far any link of the trail may lag behind the one in front of it. Without
+// it the tail length grew with pointer speed, so a quick flick drew a long straight pink line
+// far away from the cursor. With it the trail is a short comet tail (TRAIL_LENGTH * this) at
+// any speed.
+const MAX_SEGMENT = 2.5;
 const REVEAL_MS = 500;
 // Once every trail point is within this many px (sub-pixel, invisible) of the pointer the worm has stopped moving,
 // so the frame loop can sleep until the next mousemove instead of rewriting 24 SVG lines
 // 60 times a second for a cursor that is sitting still.
 const SETTLED_EPSILON = 0.25;
+
+// Rendered size of both cursor images, and the point of each image that must sit exactly on the
+// real pointer (measured from the artwork's opaque pixels, in the 40px render box):
+//  - heart: the centre of the heart itself (the 128px art has empty space below the heart, so
+//    the box centre would put the visible heart ~3px above where clicks land)
+//  - glove: its fingertip, the rounded top-left of the shape
+const CURSOR_SIZE = 40;
+const HEART_HOTSPOT = { x: 20, y: 17.2 };
+const GLOVE_HOTSPOT = { x: 4, y: 4 };
+
 // Anything that behaves like a button for the "hover" cursor. `.cursor-pointer` covers the
-// non-<button> click targets (e.g. the celebration page's tappable heart and badges), which
-// the old selector missed - they kept the plain cursor even though they are clickable.
-const CLICKABLE_SELECTOR = 'button, a, input, select, textarea, label, summary, [role="button"], .cursor-pointer';
+// non-<button> click targets (e.g. the celebration page's tappable heart and badges).
+const CLICKABLE_SELECTOR = 'button, a, select, summary, [role="button"], .cursor-pointer';
+// Text entry: the custom cursor steps aside and the browser's own I-beam shows (see index.css),
+// so people can place a caret precisely instead of aiming with a heart.
+const TEXT_FIELD_SELECTOR = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="range"]), textarea, [contenteditable="true"]';
 
 const CustomCursor = () => {
     const [isTouch, setIsTouch] = useState(false);
@@ -52,7 +69,9 @@ const CustomCursor = () => {
         const points = Array.from({ length: TRAIL_LENGTH }, () => ({ x: pointer.x, y: pointer.y }));
         let revealStart = null;
         let hovering = false;
-        let visible = true;
+        let inWindow = true;
+        let overTextField = false;
+        let shown = true;
         let lastX = null;
         let lastY = null;
         let rafId = null;
@@ -74,6 +93,15 @@ const CustomCursor = () => {
                 p.x += dx * TRAIL_EASE;
                 p.y += dy * TRAIL_EASE;
                 maxDelta = Math.max(maxDelta, Math.abs(dx), Math.abs(dy));
+
+                // Keep the tail tight: never let a link trail further than MAX_SEGMENT.
+                const lagX = p.x - leaderX;
+                const lagY = p.y - leaderY;
+                const lag = Math.hypot(lagX, lagY);
+                if (lag > MAX_SEGMENT) {
+                    p.x = leaderX + (lagX * MAX_SEGMENT) / lag;
+                    p.y = leaderY + (lagY * MAX_SEGMENT) / lag;
+                }
 
                 const line = lineRefs.current[i];
                 if (line) {
@@ -105,31 +133,37 @@ const CustomCursor = () => {
             }
         };
 
-        const setVisible = (next) => {
-            if (next !== visible && overlayRef.current) {
-                visible = next;
+        // Visible only while the mouse is inside the window and not over a text field.
+        const applyVisibility = () => {
+            const next = inWindow && !overTextField;
+            if (next !== shown && overlayRef.current) {
+                shown = next;
                 overlayRef.current.style.opacity = next ? '1' : '0';
             }
         };
 
+        const classify = (target) => {
+            overTextField = !!target?.closest?.(TEXT_FIELD_SELECTOR);
+            setHover(!overTextField && !!target?.closest?.(CLICKABLE_SELECTOR));
+            applyVisibility();
+        };
+
         const onMouseMove = (e) => {
-            // The heart is centred on the real pointer position (see the default <img> below),
-            // so the trail anchors exactly there. It used to be drawn with its top-left corner
-            // on the pointer, which put the visible heart ~20px down-right of where a click
-            // actually landed.
+            // Both images are positioned by their hotspot (see CSS / JSX below), so the pointer
+            // position IS the heart's centre / the glove's fingertip, and the trail anchors there.
             pointer.x = e.clientX;
             pointer.y = e.clientY;
             lastX = e.clientX;
             lastY = e.clientY;
             cursorX.set(e.clientX);
             cursorY.set(e.clientY);
-            setVisible(true);
+            inWindow = true;
             wake();
 
             // e.target is reliable here (the cursor overlay is pointer-events:none), so this
             // avoids calling document.elementFromPoint on every pixel of mouse movement -
             // that call forces a synchronous layout and was a major jank source.
-            setHover(!!e.target?.closest?.(CLICKABLE_SELECTOR));
+            classify(e.target);
         };
 
         // The element under a stationary pointer can change without any mouse movement: a
@@ -137,7 +171,7 @@ const CustomCursor = () => {
         // Without a re-check the cursor stayed in its "hovering" shape over empty space.
         const refreshHover = () => {
             if (lastX === null) return;
-            setHover(!!document.elementFromPoint(lastX, lastY)?.closest?.(CLICKABLE_SELECTOR));
+            classify(document.elementFromPoint(lastX, lastY));
         };
 
         const onClick = () => {
@@ -156,7 +190,10 @@ const CustomCursor = () => {
 
         // Hide the cursor while the mouse is outside the window instead of leaving it frozen
         // at the last position it was seen.
-        const onLeave = () => setVisible(false);
+        const onLeave = () => {
+            inWindow = false;
+            applyVisibility();
+        };
 
         window.addEventListener('mousemove', onMouseMove, { passive: true });
         window.addEventListener('click', onClick, true);
@@ -177,9 +214,9 @@ const CustomCursor = () => {
     if (isTouch) return null;
 
     return (
-        <div ref={overlayRef} className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden transition-opacity duration-150">
+        <div ref={overlayRef} className="custom-cursor pointer-events-none fixed inset-0 z-[9999] overflow-hidden">
             {!prefersReducedMotion && (
-                <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                <svg className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true">
                     {Array.from({ length: TRAIL_LENGTH }).map((_, i) => {
                         const light = 60 + (i / TRAIL_LENGTH) * 30; // 60% -> 90% lightness toward the tail
                         return (
@@ -188,6 +225,7 @@ const CustomCursor = () => {
                                 ref={(el) => { lineRefs.current[i] = el; }}
                                 stroke={`hsl(340, 100%, ${light}%)`}
                                 strokeWidth={2}
+                                strokeLinecap="round"
                                 style={{ opacity: 0 }}
                             />
                         );
@@ -195,43 +233,32 @@ const CustomCursor = () => {
                 </svg>
             )}
 
-            {/* Main Cursor - rendered last to stay on top of the trail */}
-            <motion.div
-                style={{
-                    translateX: cursorX,
-                    translateY: cursorY,
-                    x: "0%",
-                    y: "0%"
-                }}
-                className="fixed top-0 left-0 will-change-transform z-50"
+            {/* Main cursor - rendered last to stay on top of the trail. The wrapper is a zero-size
+                box sitting exactly on the pointer; each image is offset by its own hotspot. Both
+                images stay mounted and cross-fade, so changing shape never remounts / flickers. */}
+            <m.div
+                style={{ x: cursorX, y: cursorY }}
+                className="fixed top-0 left-0 will-change-transform"
             >
-                <motion.div
-                    initial={false}
-                    animate={{ scale: isHovering ? 1.1 : 1 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    style={{ filter: "drop-shadow(0 2px 5px rgba(255, 92, 141, 0.4)) brightness(1.2) saturate(2.8) hue-rotate(-5deg)" }}
-                >
-                    {isHovering ? (
-                        // HOVER STATE: HEART CURSOR (Animated Pulse)
-                        <motion.img
-                            src={heartCursor}
-                            alt=""
-                            aria-hidden="true"
-                            className="w-10 h-10 object-contain"
-                            animate={{ scale: [1, 1.1, 1] }}
-                            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                        />
-                    ) : (
-                        // DEFAULT STATE: centred on the pointer so the visible heart is where clicks land
-                        <img
-                            src={pointerCursor}
-                            alt=""
-                            aria-hidden="true"
-                            className="w-10 h-10 object-contain -translate-x-1/2 -translate-y-1/2"
-                        />
-                    )}
-                </motion.div>
-            </motion.div>
+                <div className="cursor-shape" data-hover={isHovering}>
+                    <img
+                        src={heartCursor}
+                        alt=""
+                        aria-hidden="true"
+                        draggable={false}
+                        className="cursor-img cursor-img-heart"
+                        style={{ width: CURSOR_SIZE, height: CURSOR_SIZE, left: -HEART_HOTSPOT.x, top: -HEART_HOTSPOT.y }}
+                    />
+                    <img
+                        src={gloveCursor}
+                        alt=""
+                        aria-hidden="true"
+                        draggable={false}
+                        className="cursor-img cursor-img-glove"
+                        style={{ width: CURSOR_SIZE, height: CURSOR_SIZE, left: -GLOVE_HOTSPOT.x, top: -GLOVE_HOTSPOT.y }}
+                    />
+                </div>
+            </m.div>
         </div>
     );
 };

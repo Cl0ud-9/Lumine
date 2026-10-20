@@ -21,9 +21,12 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
+        // framer-motion is deliberately NOT forced into a manual chunk: the app loads its animation
+        // features lazily (<LazyMotion>, see src/App.jsx), and a manual 'ui' chunk would pull the
+        // whole engine into the eagerly-loaded bundle again. Let Rollup split it along the
+        // dynamic-import boundary instead.
         manualChunks: {
           'vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui': ['framer-motion'],
           'db': ['@supabase/supabase-js']
         }
       }

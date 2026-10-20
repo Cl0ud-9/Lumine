@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import CustomCursor from '../components/CustomCursor';
 import FloatingLabelInput from '../components/FloatingLabelInput';
@@ -47,25 +47,25 @@ const ForgotPassword = () => {
                 <div className="floating-orb absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-200 opacity-40" style={{ animationDelay: '-5s' }}></div>
             </div>
 
-            <motion.div
+            <m.main
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="w-full max-w-md relative z-10"
             >
-                <div className="sticker-card rounded-[3rem] p-8">
-                    <div className="text-center mb-8">
-                        <motion.h1
-                            className="font-['Fredoka'] text-4xl font-bold text-[#ff4d7d] mb-2"
+                <div className="sticker-card rounded-[3rem] p-8 [@media(max-height:500px)]:p-4 [@media(max-height:500px)]:rounded-[2rem]">
+                    <div className="text-center mb-8 [@media(max-height:500px)]:mb-3">
+                        <m.h1
+                            className="font-['Fredoka'] text-4xl [@media(max-height:500px)]:text-2xl font-bold text-[#ff4d7d] mb-2 [@media(max-height:500px)]:mb-1"
                             style={{ willChange: "transform", translateZ: 30 }}
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                         >
-                            Forgot Password? 🔐
-                        </motion.h1>
+                            Forgot Password?<span className="material-symbols-outlined ml-1 align-[-0.12em]" aria-hidden="true">lock</span>
+                        </m.h1>
                         <p className="font-['Quicksand'] text-gray-600 font-semibold">We{"'"}ll send you a reset link</p>
                     </div>
 
-                    <form onSubmit={handleResetPassword} className="space-y-6">
+                    <form onSubmit={handleResetPassword} className="space-y-6 [@media(max-height:500px)]:space-y-2">
                         <div>
                             <FloatingLabelInput
                                 label="Email"
@@ -79,13 +79,13 @@ const ForgotPassword = () => {
                         </div>
 
                         {error && (
-                            <div role="alert" className="font-['Quicksand'] bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold">
+                            <div role="alert" className="font-['Quicksand'] bg-red-50 text-red-700 px-4 py-3 rounded-xl text-sm font-semibold">
                                 {error}
                             </div>
                         )}
 
                         {message && (
-                            <div role="status" className="font-['Quicksand'] bg-green-50 text-green-600 px-4 py-3 rounded-xl text-sm font-semibold">
+                            <div role="status" className="font-['Quicksand'] bg-green-50 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold">
                                 {message}
                             </div>
                         )}
@@ -93,16 +93,16 @@ const ForgotPassword = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="bubbly-yes w-full py-4 rounded-[2rem] text-base sm:text-xl font-['Fredoka'] text-white uppercase tracking-wider transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                            className="bubbly-yes w-full py-4 [@media(max-height:500px)]:py-2 rounded-[2rem] text-base sm:text-xl font-['Fredoka'] text-white uppercase tracking-wider transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                         >
                             <span className="flex items-center justify-center gap-2">
                                 {loading ? 'Sending...' : 'Send Reset Link'}
-                                {!loading && <span className="material-symbols-outlined text-xl sm:text-2xl">mail</span>}
+                                {!loading && <span aria-hidden="true" className="material-symbols-outlined text-xl sm:text-2xl">mail</span>}
                             </span>
                         </button>
                     </form>
 
-                    <div className="mt-6 text-center">
+                    <div className="mt-6 [@media(max-height:500px)]:mt-3 text-center">
                         <p className="font-['Quicksand'] text-gray-600 font-semibold">
                             Remember your password?{' '}
                             <Link to="/auth/verify" className="text-[#ff4d7d] font-bold hover:underline">
@@ -111,7 +111,7 @@ const ForgotPassword = () => {
                         </p>
                     </div>
                 </div>
-            </motion.div>
+            </m.main>
         </div>
     );
 };

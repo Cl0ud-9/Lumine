@@ -1,7 +1,67 @@
-/* Font loading lives in index.html as <link rel="preconnect"/"stylesheet"> tags, not here -
-   an @import in CSS is render-blocking and can't be discovered/preconnected as early as a
-   <link> in <head>. Inter is requested there; Playfair Display and Satisfy were previously
-   imported here but unused anywhere in the app, so they were pure wasted bytes/requests. */
+/* Fonts are self-hosted from /public/fonts (latin subsets only) instead of Google Fonts:
+   no third-party DNS/TLS handshake or render-blocking stylesheet chain before text can paint,
+   long-lived immutable caching, and the key files are preloaded from index.html.
+   Each family is a single variable font, so one file covers every weight below.
+
+   The icon font is the Material Symbols Outlined set cut down to just the glyphs this app
+   uses (about 6KB instead of the 480KB full set). It is generated from Google's
+   `icon_names` API - when you use a NEW icon name anywhere in the code, add it to that list
+   and re-download the file (see README -> "Adding a new icon"), otherwise it renders as text. */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 600;
+  font-display: swap;
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/fredoka-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Pacifico';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/pacifico-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+  src: url('/fonts/plus-jakarta-sans-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Quicksand';
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url('/fonts/quicksand-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* display: block (not swap) for the icon font on purpose: while it loads the icons are
+   invisible instead of flashing their ligature names as plain text ("favorite", "lightbulb"). */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/material-symbols-eada4cf0.woff2') format('woff2');
+}
 
 @tailwind base;
 @tailwind components;
@@ -25,6 +85,26 @@
     *::after {
       cursor: none !important;
     }
+
+    /* ...except over text entry, where the normal I-beam is shown (and CustomCursor hides itself)
+       so a caret can be placed precisely. More specific than `*`, so it wins despite both being
+       !important. */
+    input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="range"]),
+    textarea,
+    [contenteditable="true"] {
+      cursor: text !important;
+    }
+  }
+}
+
+/* On phones `100vh` is the height with the browser's address bar HIDDEN, so every full-screen
+   `min-h-screen` page was taller than the visible area and could scroll a few pixels for no
+   reason. `dvh` tracks the visible viewport; browsers without support keep the 100vh fallback. */
+@supports (height: 100dvh) {
+
+  .min-h-screen,
+  body {
+    min-height: 100dvh;
   }
 }
 
@@ -108,6 +188,24 @@
   transform: rotate(-1deg);
 }
 
+/* Frosted glass costs a full re-blur of everything behind the card on EVERY frame it changes.
+   That is cheap on the login / dashboard pages (static backdrop) but the proposal and
+   celebration pages animate hearts, confetti and orbs behind a large card - measured, that
+   backdrop blur alone dropped them from a steady 60fps to ~46-52fps (software rendering; real
+   GPUs fare better but low-end phones do not). The flat variant keeps the same look with a
+   denser white fill instead of a live blur. */
+.sticker-card--flat {
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  /* IMPORTANT - must stay flat. The proposal card's wrapper sets `transform-style: preserve-3d`
+     inline (for the mouse-tilt), and any element with a backdrop-filter is silently forced to
+     `flat` by the browser. Dropping the filter without this line left preserve-3d genuinely
+     active, and Chromium then mis-hit-tested parts of the Yes button inside the tilted card
+     (clicks landed on its wrapper and did nothing). `!important` beats the inline style. */
+  transform-style: flat !important;
+}
+
 .bubbly-yes {
   background: linear-gradient(-45deg, #ff7a9d, #ffadd1, #d89fff, #ff6b8f);
   background-size: 300% 300%;
@@ -154,20 +252,82 @@ textarea {
   -webkit-user-select: text;
 }
 
-.material-symbols-outlined {
-  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 48;
+/* Icon font base styles. In the components layer so Tailwind's text-* size utilities still win.
+   The subset font is a single fixed instance (filled, weight 400, optical size 48), so there
+   are no variation axes to set. width/height 1em + overflow hidden: every glyph is exactly one
+   em wide, so the icon box never changes size when the font finishes loading (it used to
+   reflow from the width of the ligature text, e.g. "favorite", to one em). */
+@layer components {
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    overflow: hidden;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-feature-settings: 'liga';
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    flex-shrink: 0;
+  }
 }
 
 .perspective-1000 {
   perspective: 1000px;
 }
 
-.fill-1 {
-  font-variation-settings: 'FILL' 1;
+/* ---- Custom cursor (see components/CustomCursor.jsx) ------------------------------------ */
+.custom-cursor {
+  transition: opacity 150ms ease-out;
 }
 
-.fill-0 {
-  font-variation-settings: 'FILL' 0;
+/* Zero-size box that sits exactly on the pointer; both images are positioned by their hotspot
+   inside it, and scaling happens around that same point so the aim never shifts on hover. The
+   glow is a soft pink drop shadow only - the previous brightness/saturate(2.8)/hue-rotate chain
+   pushed the pink artwork towards neon purple, which looked wrong over the pink UI. */
+.cursor-shape {
+  position: relative;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  filter: saturate(1.35) drop-shadow(0 2px 4px rgba(255, 92, 141, 0.35));
+}
+
+.cursor-shape[data-hover="true"] {
+  transform: scale(1.08);
+}
+
+.cursor-img {
+  position: absolute;
+  max-width: none;
+  user-select: none;
+  transition: opacity 120ms ease-out;
+}
+
+.cursor-img-heart {
+  opacity: 1;
+}
+
+.cursor-img-glove {
+  opacity: 0;
+}
+
+.cursor-shape[data-hover="true"] .cursor-img-heart {
+  opacity: 0;
+}
+
+.cursor-shape[data-hover="true"] .cursor-img-glove {
+  opacity: 1;
 }
 
 /* Loading Screen Animations */
@@ -321,6 +481,26 @@ textarea {
   /* Chrome / Safari / new Edge */
 }
 
+/* Scroll area for modal dialogs. The dialog panel itself is `overflow-hidden` (so rounded corners
+   and decorative blobs are clipped); THIS element, inside it, does the scrolling. Putting
+   `overflow-y: auto` on the panel instead made the browser promote overflow-x to auto as well, and
+   the blobs hanging past the panel edge then produced a sideways scrollbar. Height is the
+   dynamic viewport minus the overlay padding and panel border (2.5rem), with a plain-vh fallback.
+   The scrollbar is hidden like every other scroller in the app (touch / wheel / keys still work). */
+.modal-scroll {
+  max-height: calc(100vh - 2.5rem);
+  max-height: calc(100dvh - 2.5rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.modal-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* Fade using mask-image for transparency support on any background */
 .custom-scrollbar-wrapper {
   position: relative;
@@ -373,5 +553,11 @@ html {
   .bubbly-copy,
   .bubbly-delete {
     animation: none !important;
+  }
+
+  .custom-cursor,
+  .cursor-shape,
+  .cursor-img {
+    transition: none !important;
   }
 }

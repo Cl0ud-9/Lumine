@@ -1,67 +1,30 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
-import { supabase } from './lib/supabaseClient';
 import LoadingScreen from './components/LoadingScreen';
 import Proposal from './pages/Proposal';
-import Celebration from './pages/Celebration';
 import CircularTransition from './components/CircularTransition';
 import CustomCursor from './components/CustomCursor';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, LazyMotion } from 'framer-motion';
 
-// Code-split everything that isn't part of the "/" proposal flow - a recipient opening a
-// shared link should only ever download Proposal/Celebration, never the dashboard or auth bundle.
-const Dashboard = lazy(() => import('./pages/Dashboard'));
+// Framer Motion's animation engine is loaded as a separate chunk (every animated element in the
+// app is an `m.*` component, which only needs the features once they arrive) instead of being
+// bundled into the entry - roughly 20KB less JavaScript to download and parse before first paint.
+// `strict` makes a stray `motion.*` import throw in development rather than silently re-bundling
+// the full library.
+const loadMotionFeatures = () => import('./lib/motionFeatures').then((mod) => mod.default);
+
+// Code-split everything that isn't needed to show the proposal - a recipient opening a shared
+// link should never download the dashboard or auth bundle. The celebration screen is only
+// reached after "Yes", so it loads separately (and is prefetched below while the proposal is up).
+const loadCelebration = () => import('./pages/Celebration');
+const Celebration = lazy(loadCelebration);
+const AdminRoute = lazy(() => import('./components/AdminRoute'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
 const EmailConfirmation = lazy(() => import('./pages/EmailConfirmation'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
-
-const ProtectedRoute = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        let cancelled = false;
-
-        supabase.auth.getSession()
-            .then(({ data: { session } }) => {
-                if (!cancelled) setUser(session?.user ?? null);
-            })
-            .catch(() => {
-                // Can't verify a session (storage/network failure) - treat as signed out
-                // instead of leaving the route stuck on the loading state forever.
-                if (!cancelled) setUser(null);
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false);
-            });
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-        });
-
-        return () => {
-            cancelled = true;
-            subscription.unsubscribe();
-        };
-    }, []);
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-mesh font-['Quicksand'] font-semibold text-gray-600" role="status">
-                Loading...
-            </div>
-        );
-    }
-
-    if (!user) {
-        return <Navigate to="/auth/verify" replace />;
-    }
-
-    return children;
-};
 
 const ProposalFlow = () => {
     const { currentStep, setStep } = useApp();
@@ -104,6 +67,12 @@ const ProposalFlow = () => {
         [triggerCircularTransition, setStep]
     );
 
+    // Warm the celebration chunk during the (4.5s) intro so it is already cached when "Yes" is
+    // clicked - otherwise the screen after Yes could flash empty while the chunk downloads.
+    useEffect(() => {
+        loadCelebration();
+    }, []);
+
     return (
         <div className="min-h-screen font-inter selection:bg-pink-200 selection:text-pink-900 overflow-hidden relative cursor-none">
             <CustomCursor />
@@ -122,7 +91,9 @@ const ProposalFlow = () => {
                         <Proposal key="proposal" onTransition={triggerCircularTransition} />
                     )}
                     {currentStep === 'celebration' && (
-                        <Celebration key="celebration" />
+                        <Suspense key="celebration" fallback={null}>
+                            <Celebration />
+                        </Suspense>
                     )}
                 </AnimatePresence>
             </div>
@@ -140,24 +111,22 @@ const NotFoundRedirect = () => {
 function App() {
     return (
         <AppProvider>
-            <BrowserRouter>
-                <Suspense fallback={null}>
-                    <Routes>
-                        <Route path="/auth/verify" element={<Login />} />
-                        <Route path="/auth/register" element={<Signup />} />
-                        <Route path="/auth/email-confirmation" element={<EmailConfirmation />} />
-                        <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-                        <Route path="/auth/reset-password" element={<ResetPassword />} />
-                        <Route path="/admin/analytics" element={
-                            <ProtectedRoute>
-                                <Dashboard />
-                            </ProtectedRoute>
-                        } />
-                        <Route path="/" element={<ProposalFlow />} />
-                        <Route path="*" element={<NotFoundRedirect />} />
-                    </Routes>
-                </Suspense>
-            </BrowserRouter>
+            <LazyMotion features={loadMotionFeatures} strict>
+                <BrowserRouter>
+                    <Suspense fallback={null}>
+                        <Routes>
+                            <Route path="/auth/verify" element={<Login />} />
+                            <Route path="/auth/register" element={<Signup />} />
+                            <Route path="/auth/email-confirmation" element={<EmailConfirmation />} />
+                            <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+                            <Route path="/auth/reset-password" element={<ResetPassword />} />
+                            <Route path="/admin/analytics" element={<AdminRoute />} />
+                            <Route path="/" element={<ProposalFlow />} />
+                            <Route path="*" element={<NotFoundRedirect />} />
+                        </Routes>
+                    </Suspense>
+                </BrowserRouter>
+            </LazyMotion>
         </AppProvider>
     );
 }

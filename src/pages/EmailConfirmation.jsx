@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import CustomCursor from '../components/CustomCursor';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -15,40 +15,40 @@ const EmailConfirmation = () => {
                 <div className="floating-orb absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-200 opacity-40" style={{ animationDelay: '-5s' }}></div>
             </div>
 
-            <motion.div
+            <m.main
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="w-full max-w-md relative z-10"
             >
-                <div className="sticker-card rounded-[3rem] p-8 text-center">
-                    <motion.div
+                <div className="sticker-card rounded-[3rem] p-8 [@media(max-height:500px)]:p-4 [@media(max-height:500px)]:rounded-[2rem] text-center">
+                    <m.div
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 15 }}
-                        className="w-24 h-24 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-6"
+                        className="w-24 h-24 [@media(max-height:500px)]:w-12 [@media(max-height:500px)]:h-12 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-6 [@media(max-height:500px)]:mb-2"
                     >
-                        <span className="material-symbols-outlined text-5xl text-pink-500">
+                        <span aria-hidden="true" className="material-symbols-outlined text-5xl [@media(max-height:500px)]:text-2xl text-pink-500">
                             mark_email_unread
                         </span>
-                    </motion.div>
+                    </m.div>
 
-                    <div className="mb-4">
-                        <motion.h1
+                    <div className="mb-4 [@media(max-height:500px)]:mb-1">
+                        <m.h1
                             className="font-['Fredoka'] text-3xl font-bold text-[#ff4d7d] mb-2"
                             style={{ willChange: "transform", translateZ: 30 }}
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                         >
-                            Verify Your Email 💌
-                        </motion.h1>
+                            Verify Your Email
+                        </m.h1>
                     </div>
 
-                    <p className="font-['Quicksand'] text-gray-600 font-semibold mb-8 leading-relaxed">
+                    <p className="font-['Quicksand'] text-gray-600 font-semibold mb-8 [@media(max-height:500px)]:mb-3 leading-relaxed">
                         We{"'"}ve sent a confirmation link to your inbox. <br />
                         Please click the link to activate your account and start creating romantic proposals!
                     </p>
 
-                    <div className="space-y-4">
+                    <div className="space-y-4 [@media(max-height:500px)]:space-y-2">
                         <Link
                             to="/auth/verify"
                             className="bubbly-yes block w-full py-4 rounded-[2rem] text-xl font-['Fredoka'] text-white uppercase tracking-wider transition-transform active:scale-95 font-semibold"
@@ -65,7 +65,7 @@ const EmailConfirmation = () => {
                         </p>
                     </div>
                 </div>
-            </motion.div>
+            </m.main>
         </div>
     );
 };

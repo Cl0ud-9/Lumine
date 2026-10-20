@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
-import { supabase } from '../lib/supabaseClient';
-import { motion, animate, LayoutGroup, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { publicRpc } from '../lib/publicRpc';
+import { m, animate, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { useFloatingElements } from '../hooks/useFloatingElements';
 import FloatingParticles from '../components/FloatingParticles';
@@ -34,7 +34,7 @@ const NO_PHRASES = [
 const trackYesWithRetry = async (token, attempts = 3) => {
     for (let attempt = 1; attempt <= attempts; attempt++) {
         try {
-            const { error } = await supabase.rpc('track_yes', { url_token: token });
+            const { error } = await publicRpc('track_yes', { url_token: token });
             if (!error) return;
             logger.error('Error tracking yes:', error);
         } catch (error) {
@@ -102,7 +102,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         const trackVisit = async () => {
             try {
                 // 1. Check if token exists
-                const { data: exists, error: checkError } = await supabase.rpc('check_invite_exists', { url_token: token });
+                const { data: exists, error: checkError } = await publicRpc('check_invite_exists', { url_token: token });
 
                 if (checkError || !exists) {
                     setIsInvalid(true);
@@ -110,7 +110,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                 }
 
                 // 2. Track visit securely
-                await supabase.rpc('track_visit', { url_token: token });
+                await publicRpc('track_visit', { url_token: token });
 
             } catch (error) {
                 logger.error('Error tracking visit:', error);
@@ -181,6 +181,17 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         const buttonWidth = noRef.current.offsetWidth;
         const buttonHeight = noRef.current.offsetHeight;
 
+        // The button is tilted by a random +-10deg. A tilted box is taller/wider than its layout
+        // box (a 380px-wide label gains ~65px of height), and the old placement ignored that, so a
+        // tilted corner could poke onto the Yes button or past the card edge. Choose the tilt
+        // first and reserve the extra room on every side.
+        const rotate = Math.random() * 20 - 10;
+        const radians = (Math.abs(rotate) * Math.PI) / 180;
+        const tiltedWidth = buttonWidth * Math.cos(radians) + buttonHeight * Math.sin(radians);
+        const tiltedHeight = buttonWidth * Math.sin(radians) + buttonHeight * Math.cos(radians);
+        const insetX = (tiltedWidth - buttonWidth) / 2;
+        const insetY = (tiltedHeight - buttonHeight) / 2;
+
         const padding = 20;
         const searchAttempts = 50;
         const safeDistance = 15;
@@ -200,15 +211,22 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         let bestY = 0;
         let found = false;
 
-        for (let i = 0; i < searchAttempts; i++) {
-            const x = Math.random() * Math.max(0, cardRect.width - buttonWidth - padding * 2) + padding;
-            const y = Math.random() * Math.max(0, cardRect.height - buttonHeight - padding * 2) + padding;
+        // Range for the (untilted) box's top-left so the TILTED box stays inside the card.
+        const minX = padding + insetX;
+        const minY = padding + insetY;
+        const maxX = Math.max(minX, cardRect.width - buttonWidth - padding - insetX);
+        const maxY = Math.max(minY, cardRect.height - buttonHeight - padding - insetY);
 
+        for (let i = 0; i < searchAttempts; i++) {
+            const x = minX + Math.random() * (maxX - minX);
+            const y = minY + Math.random() * (maxY - minY);
+
+            // Compare using the tilted bounding box.
             const noRel = {
-                top: y,
-                left: x,
-                right: x + buttonWidth,
-                bottom: y + buttonHeight
+                top: y - insetY,
+                left: x - insetX,
+                right: x + buttonWidth + insetX,
+                bottom: y + buttonHeight + insetY
             };
 
             const overlap = !(
@@ -227,16 +245,16 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         }
 
         if (!found) {
+            // No free spot: tuck into the card corner farthest from Yes.
             if (yesRel.top < cardRect.height / 2) {
-                bestX = Math.max(0, cardRect.width - buttonWidth - padding);
-                bestY = Math.max(0, cardRect.height - buttonHeight - padding);
+                bestX = maxX;
+                bestY = maxY;
             } else {
-                bestX = padding;
-                bestY = padding;
+                bestX = minX;
+                bestY = minY;
             }
         }
 
-        const rotate = Math.random() * 20 - 10;
         setNoButtonPos({ x: bestX, y: bestY, rotate });
     }, [yesGlideX, yesGlideY]);
 
@@ -286,20 +304,28 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
             }
             setHasEscaped(true);
             requestAnimationFrame(() => requestAnimationFrame(moveNoButton));
-        } else {
-            moveNoButton();
         }
+        // Later clicks are repositioned from the layout effect below, AFTER React has rendered the
+        // new (longer) label. Doing it here measured the OLD label's size, so every phrase that was
+        // wider or wrapped to two lines grew after being placed and could end up on top of Yes.
 
         // Track "No" click in database via secure RPC
         if (token) {
             try {
-                const { error } = await supabase.rpc('track_no', { url_token: token });
+                const { error } = await publicRpc('track_no', { url_token: token });
                 if (error) logger.error('Error tracking No click:', error);
             } catch (error) {
                 logger.error('Error tracking No click:', error);
             }
         }
     }, [moveNoButton, token]);
+
+    // Pick the next hiding spot once the new label is in the DOM (runs before paint, so there is no
+    // frame where the button sits at its old spot with its new text). The very first escape is
+    // handled in handleNo, which has to pin the button in place before it can animate.
+    useLayoutEffect(() => {
+        if (noCount >= 2) moveNoButton();
+    }, [noCount, moveNoButton]);
 
     // When the No button leaves the row (position: absolute) the flex row re-centres Yes. Do that
     // move as a glide: this runs after React commits but BEFORE the browser paints, so measure
@@ -381,7 +407,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
 
     return (
         <div className="relative min-h-screen">
-            <motion.div
+            <m.div
                 ref={ref}
                 initial={{ clipPath: "circle(0% at 50% 50%)" }}
                 animate={{ clipPath: "circle(150% at 50% 50%)" }}
@@ -396,80 +422,82 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                     clearTimeout(zIndexTimer.current);
                     zIndexTimer.current = setTimeout(() => setZIndex(50), 1000);
                 }}
-                className="bg-gradient-mesh font-['Quicksand'] min-h-screen overflow-hidden flex items-center justify-center p-4 relative"
+                className="bg-gradient-mesh font-['Quicksand'] min-h-screen overflow-hidden flex items-center justify-center p-4 [@media(max-height:500px)]:p-2 relative"
                 style={{ perspective: 1000, zIndex }}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
             >
                 {/* Shared Background Elements */}
-                <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+                <div aria-hidden="true" className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
                     <FloatingParticles elements={elements} prefersReducedMotion={prefersReducedMotion} heartVariant="filled" />
                 </div>
 
-                <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+                <div aria-hidden="true" className="fixed inset-0 pointer-events-none overflow-hidden z-0">
                     <div className="floating-orb absolute top-[-10%] left-[-10%] w-96 h-96 bg-pink-300 opacity-40"></div>
                     <div className="floating-orb absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-200 opacity-40" style={{ animationDelay: '-5s' }}></div>
                     <div className="floating-orb absolute top-1/2 left-1/2 w-64 h-64 bg-yellow-100 opacity-30" style={{ animationDelay: '-2s' }}></div>
                     <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '40px 40px', opacity: 0.3 }}></div>
                 </div>
 
-                <div className="fixed top-12 left-12 rotate-12 opacity-80 z-0">
-                    <span className="material-symbols-outlined text-pink-400 text-6xl">flare</span>
+                <div aria-hidden="true" className="fixed top-12 left-12 rotate-12 opacity-80 z-0">
+                    <span aria-hidden="true" className="material-symbols-outlined text-pink-400 text-6xl">flare</span>
                 </div>
-                <div className="fixed top-1/4 right-20 -rotate-12 opacity-80 z-0">
-                    <span className="material-symbols-outlined text-purple-400 text-5xl">auto_awesome</span>
+                <div aria-hidden="true" className="fixed top-1/4 right-20 -rotate-12 opacity-80 z-0">
+                    <span aria-hidden="true" className="material-symbols-outlined text-purple-400 text-5xl">auto_awesome</span>
                 </div>
-                <div className="fixed bottom-20 left-1/4 rotate-6 opacity-80 z-0">
-                    <span className="material-symbols-outlined text-pink-300 text-7xl">favorite</span>
+                <div aria-hidden="true" className="fixed bottom-20 left-1/4 rotate-6 opacity-80 z-0">
+                    <span aria-hidden="true" className="material-symbols-outlined text-pink-300 text-7xl">favorite</span>
                 </div>
-                <div className="fixed top-10 right-1/3 opacity-60 z-0">
-                    <span className="material-symbols-outlined text-rose-300 text-4xl">celebration</span>
+                <div aria-hidden="true" className="fixed top-10 right-1/3 opacity-60 z-0">
+                    <span aria-hidden="true" className="material-symbols-outlined text-rose-300 text-4xl">celebration</span>
                 </div>
 
                 {/* Content Switcher */}
                 {isInvalid ? (
-                    <div className="min-h-screen flex items-center justify-center cursor-none relative z-10 p-4">
+                    <main className="min-h-screen flex items-center justify-center cursor-none relative z-10 p-4">
 
                         <div className="sticker-card rounded-[3rem] p-8 md:p-12 text-center max-w-md w-full relative z-10 shadow-2xl">
                             <div className="mb-6 relative inline-block">
-                                <motion.span
+                                <m.span
                                     animate={{ y: [0, -2, 0] }}
                                     transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
                                     style={{ willChange: "transform", display: "inline-block" }}
                                     className="material-symbols-outlined text-8xl text-gray-300"
+                                    aria-hidden="true"
                                 >
                                     broken_image
-                                </motion.span>
+                                </m.span>
                                 <span
                                     style={{ transform: "rotate(20deg)", display: "inline-block" }}
                                     className="material-symbols-outlined text-4xl text-pink-400 absolute -bottom-0 -right-2"
+                                    aria-hidden="true"
                                 >
                                     heart_broken
                                 </span>
                             </div>
-                            <motion.h1
+                            <m.h1
                                 animate={{ y: [0, -5, 0] }}
                                 transition={{ repeat: Infinity, duration: 4, ease: "easeInOut", delay: 0.2 }}
                                 style={{ translateZ: 40, willChange: "transform" }}
                                 className="font-['Fredoka'] text-3xl md:text-4xl font-bold text-gray-700 mb-3"
                             >
                                 Oops! Invalid Link
-                            </motion.h1>
-                            <motion.p
+                            </m.h1>
+                            <m.p
                                 className="font-['Quicksand'] text-gray-500 font-semibold text-lg mb-8 leading-relaxed"
                             >
                                 This proposal URL seems to be broken, expired, or deleted.
-                            </motion.p>
+                            </m.p>
                         </div>
                         {/* Background decoration for Invalid State */}
-                        <div className="fixed inset-0 pointer-events-none z-0">
-                            <span className="material-symbols-outlined absolute top-20 left-20 text-gray-200 text-6xl rotate-12">sentiment_dissatisfied</span>
-                            <span className="material-symbols-outlined absolute bottom-20 right-20 text-gray-200 text-8xl -rotate-12">link_off</span>
+                        <div aria-hidden="true" className="fixed inset-0 pointer-events-none z-0">
+                            <span aria-hidden="true" className="material-symbols-outlined absolute top-20 left-20 text-gray-200 text-6xl rotate-12">sentiment_dissatisfied</span>
+                            <span aria-hidden="true" className="material-symbols-outlined absolute bottom-20 right-20 text-gray-200 text-8xl -rotate-12">link_off</span>
                         </div>
-                    </div>
+                    </main>
                 ) : (
                     <main className="relative z-10 w-full max-w-lg lg:max-w-2xl px-4" style={{ perspective: 1000 }}>
-                        <motion.div
+                        <m.div
                             ref={cardRef}
                             style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
                             variants={{
@@ -488,15 +516,14 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                             initial="hidden"
                             animate="visible"
                             exit="exit"
-                            className="sticker-card rounded-[3rem] pt-8 pb-5 px-5 md:pt-10 md:pb-6 md:px-6 text-center relative overflow-visible"
+                            className="sticker-card sticker-card--flat rounded-[3rem] pt-8 pb-5 px-5 md:pt-10 md:pb-6 md:px-6 [@media(max-height:500px)]:pt-4 [@media(max-height:500px)]:pb-3 text-center relative overflow-visible"
                         >
                             <div className="absolute -top-6 -left-4 transform -rotate-[45deg] drop-shadow-lg z-20" style={{ transform: "translateZ(30px) rotate(-45deg)" }}>
-                                <span className="material-symbols-outlined text-7xl text-[#ff85a1]">redeem</span>
+                                <span aria-hidden="true" className="material-symbols-outlined text-7xl text-[#ff85a1]">redeem</span>
                             </div>
 
-                            <div className="mb-6 lg:mb-4 flex justify-center">
-                                <motion.div
-                                    layoutId="hero-heart"
+                            <div className="mb-6 lg:mb-4 [@media(max-height:500px)]:mb-2 flex justify-center">
+                                <m.div
                                     className="z-50"
                                     style={{ translateZ: 50 }}
                                     variants={{
@@ -504,40 +531,40 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                         visible: { scale: 1, opacity: 1, transition: { type: "spring", duration: 1.2, bounce: 0.5 } } // Added explicit spring to heart
                                     }}
                                 >
-                                    <motion.div
+                                    <m.div
                                         animate={{ scale: [1, 1.05, 1] }}
                                         transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                                        className="glossy-heart w-24 h-24 rounded-full flex items-center justify-center"
+                                        className="glossy-heart w-24 h-24 [@media(max-height:500px)]:w-14 [@media(max-height:500px)]:h-14 rounded-full flex items-center justify-center"
                                     >
-                                        <span className="material-symbols-outlined text-white text-5xl">favorite</span>
-                                    </motion.div>
-                                </motion.div>
+                                        <span aria-hidden="true" className="material-symbols-outlined text-white text-5xl [@media(max-height:500px)]:text-3xl">favorite</span>
+                                    </m.div>
+                                </m.div>
                             </div>
 
-                            <div className="space-y-4 md:space-y-5 lg:space-y-4">
-                                <motion.div
+                            <div className="space-y-4 md:space-y-5 lg:space-y-4 [@media(max-height:500px)]:space-y-1">
+                                <m.div
                                     variants={{
                                         hidden: { y: 20, opacity: 0 },
                                         visible: { y: 0, opacity: 1, transition: { duration: 0.8 } } // Slower
                                     }}
                                 >
 
-                                    <motion.h1
+                                    <m.h1
                                         animate={{ y: [0, -4, 0] }}
                                         transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
                                         style={{ willChange: "transform", fontWeight: 700, translateZ: 40 }}
-                                        className="font-['Fredoka'] text-4xl md:text-6xl lg:text-6xl text-[#ff4d7d] tracking-tight leading-none"
+                                        className="font-['Fredoka'] text-4xl max-[359px]:text-[2rem] md:text-6xl lg:text-6xl [@media(max-height:500px)]:text-3xl text-[#ff4d7d] tracking-tight leading-none"
                                     >
                                         Will you be my<br />Valentine ?
-                                    </motion.h1>
-                                </motion.div>
-                                <motion.div
+                                    </m.h1>
+                                </m.div>
+                                <m.div
                                     variants={{
                                         hidden: { y: 20, opacity: 0 },
                                         visible: { y: 0, opacity: 1, transition: { duration: 0.8 } } // Slower
                                     }}
                                 >
-                                    <motion.p
+                                    <m.p
                                         animate={{ y: [0, -4, 0] }}
                                         transition={{
                                             repeat: Infinity,
@@ -546,16 +573,15 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                             delay: 0.6
                                         }}
                                         style={{ willChange: "transform", translateZ: 30 }}
-                                        className="font-['Pacifico'] text-lg md:text-3xl text-pink-500/80 -rotate-1"
+                                        className="font-['Pacifico'] text-lg md:text-3xl [@media(max-height:500px)]:text-base text-pink-500/80 -rotate-1"
                                     >
                                         {subtitle}
-                                    </motion.p>
-                                </motion.div>
+                                    </m.p>
+                                </m.div>
                             </div>
 
-                            <LayoutGroup>
-                                <motion.div
-                                    className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10 mt-6 md:mt-10 lg:mt-8 px-4 min-h-[100px] lg:min-h-[90px]"
+                                                            <m.div
+                                    className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10 mt-6 md:mt-10 lg:mt-8 [@media(max-height:500px)]:mt-2 px-4 min-h-[100px] lg:min-h-[90px] [@media(max-height:500px)]:min-h-[64px]"
                                     initial={{ opacity: 0, scale: 0.5 }}
                                     animate={{
                                         opacity: isEntryComplete ? 1 : 0,
@@ -570,8 +596,8 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                 >
                                     {/* Deliberately NOT positioned: the Yes button's offsetLeft/offsetTop must keep
                                         resolving against the card, which is what the glide measures. */}
-                                    <motion.div style={{ x: yesGlideX, y: yesGlideY }}>
-                                    <motion.button
+                                    <m.div style={{ x: yesGlideX, y: yesGlideY }}>
+                                    <m.button
                                         ref={yesRef}
                                         animate={{
                                             scale: hasEscaped ? 1.06 : 1,
@@ -589,13 +615,13 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                     >
                                         <span className="relative z-10 flex items-center gap-3 font-['Fredoka'] font-semibold">
                                             YES!
-                                            <span className="material-symbols-outlined text-4xl">favorite</span>
+                                            <span aria-hidden="true" className="material-symbols-outlined text-4xl">favorite</span>
                                         </span>
-                                        <span className="absolute -top-4 -right-4 material-symbols-outlined text-white opacity-0 group-hover:opacity-100 transition-opacity">auto_fix_high</span>
-                                    </motion.button>
-                                    </motion.div>
+                                        <span aria-hidden="true" className="absolute -top-4 -right-4 material-symbols-outlined text-white opacity-0 group-hover:opacity-100 transition-opacity">auto_fix_high</span>
+                                    </m.button>
+                                    </m.div>
 
-                                    <motion.button
+                                    <m.button
                                         ref={noRef}
                                         onClick={handleNo}
                                         initial={false}
@@ -612,20 +638,25 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                             position: hasEscaped ? "absolute" : "relative",
                                             left: hasEscaped ? noButtonPos.x : "auto",
                                             top: hasEscaped ? noButtonPos.y : "auto",
+                                            // Size must not depend on where the button lands: an absolutely
+                                            // positioned box shrink-wraps to the space left of its `left`, so
+                                            // a long label wrapped differently at every position and the box
+                                            // measured when choosing a spot was not the box that appeared.
+                                            width: hasEscaped ? "max-content" : undefined,
+                                            maxWidth: hasEscaped ? "calc(100% - 40px)" : undefined,
                                             zIndex: hasEscaped ? 60 : 0,
                                             transform: hasEscaped ? "translateZ(80px)" : "translateZ(50px)"
                                         }}
-                                        className="sticker-no px-6 py-2 md:px-8 md:py-3 rounded-2xl text-lg md:text-xl font-bold text-pink-400 hover:bg-pink-50 transition-all duration-300 cursor-pointer"
+                                        className="sticker-no px-6 py-2 md:px-8 md:py-3 rounded-2xl text-lg md:text-xl font-bold text-pink-600 hover:bg-pink-50 transition-all duration-300 cursor-pointer"
                                     >
                                         {noCount === 0 ? "No..." : getNoButtonText()}
-                                    </motion.button>
-                                </motion.div>
-                            </LayoutGroup>
-
+                                    </m.button>
+                                </m.div>
+                            
                             {explosions.length > 0 && (
                                 <div className="absolute inset-0 pointer-events-none z-30">
                                     {explosions.map((particle, i) => (
-                                        <motion.span
+                                        <m.span
                                             key={i}
                                             initial={{ scale: particle.scale || 1, opacity: 1, rotate: particle.rotation || 0 }}
                                             animate={{
@@ -640,37 +671,37 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                             style={{ top: "50%", left: "50%" }}
                                         >
                                             {particle.emoji || '💔'}
-                                        </motion.span>
+                                        </m.span>
                                     ))}
                                 </div>
                             )}
 
-                            <motion.p
+                            <m.p
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 transition={{ delay: 1.5, duration: 1 }}
-                                className="mt-8 text-pink-400/70 font-['Quicksand'] text-sm font-semibold italic"
+                                className="mt-8 [@media(max-height:500px)]:mt-2 text-pink-400/70 font-['Quicksand'] text-sm font-semibold italic"
                             >
                                 Hint: The {"\""}No{"\""} button is a bit shy... 😉
-                            </motion.p>
+                            </m.p>
 
 
                             <div className="absolute top-1/4 right-4" style={{ transform: "translateZ(20px)" }}>
-                                <span className="material-symbols-outlined text-yellow-300 text-3xl animate-pulse">star</span>
+                                <span aria-hidden="true" className="material-symbols-outlined text-yellow-300 text-3xl animate-pulse">star</span>
                             </div>
                             <div className="absolute bottom-1/4 left-4" style={{ transform: "translateZ(20px)" }}>
-                                <span className="material-symbols-outlined text-yellow-300 text-2xl animate-pulse" style={{ animationDelay: '1s' }}>star</span>
+                                <span aria-hidden="true" className="material-symbols-outlined text-yellow-300 text-2xl animate-pulse" style={{ animationDelay: '1s' }}>star</span>
                             </div>
-                        </motion.div>
+                        </m.div>
                     </main >
                 )}
 
                 {/* Shared overlays */}
-                <div className="fixed inset-0 pointer-events-none z-20">
-                    <span className="material-symbols-outlined absolute bottom-[10%] left-[5%] text-yellow-200/50 scale-125">auto_awesome</span>
-                    <span className="material-symbols-outlined absolute bottom-[20%] right-[15%] text-rose-200/50 scale-150">favorite</span>
+                <div aria-hidden="true" className="fixed inset-0 pointer-events-none z-20">
+                    <span aria-hidden="true" className="material-symbols-outlined absolute bottom-[10%] left-[5%] text-yellow-200/50 scale-125">auto_awesome</span>
+                    <span aria-hidden="true" className="material-symbols-outlined absolute bottom-[20%] right-[15%] text-rose-200/50 scale-150">favorite</span>
                 </div>
-            </motion.div >
+            </m.div >
 
             {/* Removed shockwave overlay completely */}
         </div>

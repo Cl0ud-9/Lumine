@@ -42,9 +42,9 @@ const FloatingLabelInput = ({
         <div className={`group relative ${className}`}>
             <label
                 htmlFor={id}
-                className="absolute left-3 top-1/2 -translate-y-1/2 cursor-text text-base font-semibold text-gray-400 transition-all duration-150
-                    group-focus-within:top-0 group-focus-within:cursor-default group-focus-within:text-[11px] group-focus-within:text-pink-500 group-focus-within:pointer-events-none
-                    has-[+input:not(:placeholder-shown)]:top-0 has-[+input:not(:placeholder-shown)]:cursor-default has-[+input:not(:placeholder-shown)]:text-[11px] has-[+input:not(:placeholder-shown)]:text-pink-500 has-[+input:not(:placeholder-shown)]:pointer-events-none"
+                className="absolute left-3 top-1/2 -translate-y-1/2 cursor-text text-base font-semibold text-gray-500 transition-all duration-150
+                    group-focus-within:top-0 group-focus-within:cursor-default group-focus-within:text-[11px] group-focus-within:text-pink-600 group-focus-within:pointer-events-none
+                    has-[+input:not(:placeholder-shown)]:top-0 has-[+input:not(:placeholder-shown)]:cursor-default has-[+input:not(:placeholder-shown)]:text-[11px] has-[+input:not(:placeholder-shown)]:text-pink-600 has-[+input:not(:placeholder-shown)]:pointer-events-none"
             >
                 <span className="font-['Quicksand'] inline-flex rounded-full bg-white px-2">{label}</span>
             </label>

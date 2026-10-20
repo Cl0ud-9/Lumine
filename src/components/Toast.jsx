@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 
 const Toast = ({ message, isVisible, onClose }) => {
     // Callers usually pass an inline arrow for onClose, which is a new function every render.
@@ -19,7 +19,7 @@ const Toast = ({ message, isVisible, onClose }) => {
     return (
         <AnimatePresence>
             {isVisible && (
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, y: 50 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 50 }}
@@ -28,10 +28,10 @@ const Toast = ({ message, isVisible, onClose }) => {
                     className="fixed bottom-4 right-4 left-4 sm:left-auto sm:bottom-8 sm:right-8 z-[70] pointer-events-none"
                 >
                     <div className="bg-gradient-to-r from-pink-500 to-purple-500 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3">
-                        <span className="text-2xl" aria-hidden="true">✓</span>
+                        <span className="material-symbols-outlined text-2xl" aria-hidden="true">check_circle</span>
                         <span className="font-semibold">{message}</span>
                     </div>
-                </motion.div>
+                </m.div>
             )}
         </AnimatePresence>
     );

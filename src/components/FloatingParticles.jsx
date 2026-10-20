@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 /**
  * Renders the hearts/sparkles/confetti list produced by useFloatingElements().
@@ -11,7 +11,7 @@ const FloatingParticles = ({ elements, prefersReducedMotion = false, heartVarian
     return (
         <>
             {elements.map((el) => (
-                <motion.div
+                <m.div
                     key={el.id}
                     initial={el.type === 'confetti'
                         ? { y: -50, opacity: 1, rotate: 0 }
@@ -71,7 +71,7 @@ const FloatingParticles = ({ elements, prefersReducedMotion = false, heartVarian
                         </svg>
                     )}
                     {/* Confetti uses CSS background color, so no SVG needed */}
-                </motion.div>
+                </m.div>
             ))}
         </>
     );
