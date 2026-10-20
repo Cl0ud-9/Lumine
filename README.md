@@ -332,6 +332,14 @@ A few things that look odd but are deliberate - each one fixed a real bug:
 
 ---
 
+## ☕ Support Lumine
+
+Lumine runs on coffee. If it helped you pop the question, you can top it up. Bug reports and ideas help just as much.
+
+<a href='https://ko-fi.com/Z3E027P5XA' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi1.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+
+---
+
 ## 🤝 Contributing
 
 Bug reports, ideas and pull requests are welcome - see [CONTRIBUTING.md](CONTRIBUTING.md). Found a security problem?
