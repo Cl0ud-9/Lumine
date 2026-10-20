@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabaseClient';
-import { motion, LayoutGroup, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { motion, animate, LayoutGroup, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { useFloatingElements } from '../hooks/useFloatingElements';
 import FloatingParticles from '../components/FloatingParticles';
@@ -67,6 +67,12 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
     const [noButtonPos, setNoButtonPos] = useState({ x: 0, y: 0, rotate: 0 });
     const [hasEscaped, setHasEscaped] = useState(false);
     const hasEscapedRef = useRef(false);
+    // The Yes button re-centres when the No button leaves the row. These drive a one-off glide
+    // for that move (see the layout effect below) instead of letting it snap.
+    const yesGlideX = useMotionValue(0);
+    const yesGlideY = useMotionValue(0);
+    const yesOffsetBeforeEscape = useRef(null);
+    const yesGlideControls = useRef([]);
     const [explosions, setExplosions] = useState([]);
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
@@ -169,11 +175,15 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         const searchAttempts = 50;
         const safeDistance = 15;
 
+        // Subtract the in-progress glide offset so this is where Yes will END UP, not wherever
+        // it happens to be mid-glide - otherwise No could be placed where Yes is about to arrive.
+        const yesLeft = yesRect.left - yesGlideX.get();
+        const yesTop = yesRect.top - yesGlideY.get();
         const yesRel = {
-            top: yesRect.top - cardRect.top,
-            left: yesRect.left - cardRect.left,
-            right: (yesRect.left - cardRect.left) + yesRect.width,
-            bottom: (yesRect.top - cardRect.top) + yesRect.height
+            top: yesTop - cardRect.top,
+            left: yesLeft - cardRect.left,
+            right: (yesLeft - cardRect.left) + yesRect.width,
+            bottom: (yesTop - cardRect.top) + yesRect.height
         };
 
         let bestX = 0;
@@ -218,7 +228,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
 
         const rotate = Math.random() * 20 - 10;
         setNoButtonPos({ x: bestX, y: bestY, rotate });
-    }, []);
+    }, [yesGlideX, yesGlideY]);
 
     // After a resize / device rotation the card can shrink under an already-escaped No button,
     // leaving it hanging outside the card (or unreachable). Pull it back inside, but only when
@@ -240,6 +250,11 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
 
         if (!hasEscapedRef.current) {
             hasEscapedRef.current = true;
+
+            // Layout-based offsets (unlike getBoundingClientRect) ignore the card's 3D tilt and
+            // any in-flight transforms, so before/after are directly comparable.
+            const yesEl = yesRef.current;
+            if (yesEl) yesOffsetBeforeEscape.current = { x: yesEl.offsetLeft, y: yesEl.offsetTop };
 
             // The first escape used to be an instant teleport: the button switches from normal
             // flow (position: relative, left: auto) to position: absolute, and CSS can't
@@ -274,6 +289,35 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
             }
         }
     }, [moveNoButton, token]);
+
+    // When the No button leaves the row (position: absolute) the flex row re-centres Yes. Do that
+    // move as a glide: this runs after React commits but BEFORE the browser paints, so measure
+    // where Yes landed, start it at its old spot with a transform, and ease the transform to 0.
+    // (Framer's `layout` prop was tried first, but it misjudged the starting point inside the
+    // card's 3D tilt - Yes flashed at its final position, then jumped back and glided.)
+    useLayoutEffect(() => {
+        const before = yesOffsetBeforeEscape.current;
+        const yesEl = yesRef.current;
+        if (!hasEscaped || !before || !yesEl) return;
+        yesOffsetBeforeEscape.current = null;
+
+        const dx = before.x - yesEl.offsetLeft;
+        const dy = before.y - yesEl.offsetTop;
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+
+        yesGlideX.set(dx);
+        yesGlideY.set(dy);
+        const options = { duration: prefersReducedMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] };
+        yesGlideControls.current = [
+            animate(yesGlideX, 0, options),
+            animate(yesGlideY, 0, options)
+        ];
+    }, [hasEscaped, prefersReducedMotion, yesGlideX, yesGlideY]);
+
+    useEffect(() => {
+        const controls = yesGlideControls;
+        return () => controls.current.forEach(c => c.stop());
+    }, []);
 
     useEffect(() => {
         if (noCount === 13) {
@@ -513,6 +557,9 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                         delay: 0.2
                                     }}
                                 >
+                                    {/* Deliberately NOT positioned: the Yes button's offsetLeft/offsetTop must keep
+                                        resolving against the card, which is what the glide measures. */}
+                                    <motion.div style={{ x: yesGlideX, y: yesGlideY }}>
                                     <motion.button
                                         ref={yesRef}
                                         animate={{
@@ -535,6 +582,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                         </span>
                                         <span className="absolute -top-4 -right-4 material-symbols-outlined text-white opacity-0 group-hover:opacity-100 transition-opacity">auto_fix_high</span>
                                     </motion.button>
+                                    </motion.div>
 
                                     <motion.button
                                         ref={noRef}
