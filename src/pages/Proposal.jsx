@@ -66,6 +66,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
     const [isEntryComplete, setIsEntryComplete] = useState(false);
     const [noButtonPos, setNoButtonPos] = useState({ x: 0, y: 0, rotate: 0 });
     const [hasEscaped, setHasEscaped] = useState(false);
+    const hasEscapedRef = useRef(false);
     const [explosions, setExplosions] = useState([]);
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
@@ -236,8 +237,32 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
 
     const handleNo = useCallback(async () => {
         setNoCount(prev => prev + 1);
-        setHasEscaped(true);
-        moveNoButton();
+
+        if (!hasEscapedRef.current) {
+            hasEscapedRef.current = true;
+
+            // The first escape used to be an instant teleport: the button switches from normal
+            // flow (position: relative, left: auto) to position: absolute, and CSS can't
+            // transition between those, so only the 2nd click onwards (number -> number) slid.
+            // Pin it to exactly where it sits now first, then pick the real target a couple of
+            // frames later so left/top animate from here to there like every later jump.
+            const noEl = noRef.current;
+            const cardEl = cardRef.current;
+            if (noEl && cardEl) {
+                const exact = noEl.offsetParent === cardEl;
+                const n = noEl.getBoundingClientRect();
+                const c = cardEl.getBoundingClientRect();
+                setNoButtonPos({
+                    x: exact ? noEl.offsetLeft : n.left - c.left,
+                    y: exact ? noEl.offsetTop : n.top - c.top,
+                    rotate: 3
+                });
+            }
+            setHasEscaped(true);
+            requestAnimationFrame(() => requestAnimationFrame(moveNoButton));
+        } else {
+            moveNoButton();
+        }
 
         // Track "No" click in database via secure RPC
         if (token) {
