@@ -19,18 +19,18 @@ Lumine allows users to generate personalized proposal links that initiate a play
 ```
 
 **For the Sender:** A dashboard to create links and track real-time stats (views, "No" clicks, time to "Yes").  
-**For the Recipient:** A beautiful, animated experience with a "No" button that playfully runs away until they say "Yes"!
+**For the Recipient:** A beautiful, animated experience where the "No" button jumps to a new spot every time it is clicked (and shrinks after enough tries) until they say "Yes"!
 
 ---
 
 ## ✨ Features
 
-- 💌 **Interactive Proposal Page** - "No" button evades the cursor; "Yes" triggers a celebration.
+- 💌 **Interactive Proposal Page** - the "No" button dodges to a new position on every click and gets smaller the more it is pressed; "Yes" triggers a celebration.
 - 📊 **Real-Time Dashboard** - Track exactly when they opened it and how long it took them to say yes.
 - 🎨 **Premium Aesthetic** - Glassmorphism, pastel gradients, and "bubbly" animations.
 - 🔄 **Interactive Parallax** - Floating UI elements that react to mouse movement and tilt.
-- 🎵 **Music & Audio** - Automatic romantic background music with dedicated mute/unmute controls.
-- 🖱️ **Custom Cursor** - A sparkly, animated custom cursor that enhances the immersive feel.
+- 🎵 **Music & Audio** - Romantic background music starts on the celebration page, with a mute/unmute button. Some browsers block autoplay; if that happens the button shows as muted and one tap starts the music. The clip plays once (it does not loop).
+- 🖱️ **Custom Cursor** - A heart cursor with a glowing trail on desktop (hidden on touch devices and simplified when "reduce motion" is on).
 - 🔐 **Secure Authentication** - User accounts managed via Supabase Auth, with email confirmation on signup.
 - 🗑️ **Account Management** - Users can permanently delete their account directly from the Dashboard.
 - 📱 **Fully Responsive** - Flawless experience on mobile and desktop.
@@ -53,14 +53,18 @@ Lumine/
 │
 ├── src/
 │   ├── components/              # Reusable UI components (Modals, Cursor, etc.)
-│   ├── pages/                   # Main pages (Dashboard, Proposal, Login)
-│   ├── lib/                     # Supabase client & shared utilities
-│   ├── assets/                  # Images, audio, and cursor assets
+│   ├── pages/                   # Main pages (Dashboard, Proposal, Celebration, auth pages)
+│   ├── context/                 # App-wide state (current proposal step)
+│   ├── hooks/                   # Shared hooks (page title, floating particles, Escape key)
+│   ├── lib/                     # Supabase client, logger & validation helpers
+│   ├── assets/                  # Cursor images
 │   ├── email_templates/         # HTML templates for system emails
 │   └── index.css                # Global styles & Tailwind directives
 │
-├── public/                      # Static assets
-├── supabase_schema.sql          # Database schema definitions
+├── public/                      # Static assets (favicon, background music in audio/)
+├── supabase_schema.sql          # Database schema for a NEW project
+├── supabase_upgrade.sql         # Safe-to-re-run upgrade for an EXISTING project
+├── vercel.json                  # Vercel routing (SPA rewrite) & cache headers
 ├── .env.example                 # Template for required environment variables
 ├── tailwind.config.js           # Tailwind CSS configuration
 ├── vite.config.ts               # Vite build configuration
@@ -73,7 +77,7 @@ Lumine/
 
 | Requirement | Purpose |
 |------------|---------|
-| **Node.js 18+** | Runtime environment |
+| **Node.js 20.19+** (or 22.12+) | Runtime environment (required by Vite 7) |
 | **npm / yarn** | Package manager |
 | **Supabase Project** | Backend (Auth & Database) |
 
@@ -120,16 +124,17 @@ You can find both values in your [Supabase Dashboard](https://supabase.com/dashb
 
 ### 4️⃣ Set Up Database
 
-Run the contents of `supabase_schema.sql` in your Supabase SQL Editor to set up the necessary tables and policies.
+**New project:** run the contents of `supabase_schema.sql` in your Supabase SQL Editor to create the
+tables, policies and functions.
 
-This also creates the `delete_my_account()` function that powers **Delete Forever** on the
-dashboard (it removes the auth user itself, not just their links) and adds `invites` to the
-`supabase_realtime` publication so new visits and "Yes" answers show up live.
+That includes the `delete_my_account()` function that powers **Delete Forever** on the dashboard (it
+removes the auth user itself, not just their links) and adds `invites` to the `supabase_realtime`
+publication so new visits and "Yes" answers show up live.
 
-**Already have a project set up?** Re-run the whole file's function sections - every function uses
-`create or replace`, so it's safe - or at minimum run the `delete_my_account` function and the
-`REALTIME` block at the bottom of `supabase_schema.sql`. Until `delete_my_account()` exists, the
-dashboard falls back to deleting only the user's links before signing them out.
+**Project you already set up earlier?** Do *not* re-run `supabase_schema.sql` (the tables already exist,
+so it would error). Run `supabase_upgrade.sql` instead - it only replaces the functions and enables
+realtime, never touches your data, and is safe to run more than once. Until `delete_my_account()` exists,
+the dashboard falls back to deleting only the user's links before signing them out.
 
 ---
 
@@ -175,6 +180,15 @@ Ready to share the love with the world?
    ```
 2. Deploy the `dist/` folder to your favorite host (Vercel, Netlify, etc.).
 3. Ensure your production environment variables are set in your hosting dashboard.
+4. In your Supabase Dashboard go to **Authentication → URL Configuration** and set **Site URL** to your
+   deployed address (e.g. `https://your-app.vercel.app`), and add `https://your-app.vercel.app/**` to
+   **Redirect URLs**. Without this, confirmation and password-reset emails can link back to the wrong
+   address (often `localhost`).
+
+The app is a single-page app, so every path (`/auth/verify`, `/admin/analytics`, ...) must serve
+`index.html`. `vercel.json` already does this on Vercel; on Netlify or similar hosts add an equivalent
+rewrite rule (e.g. a `_redirects` file containing `/* /index.html 200`), otherwise refreshing or opening
+a deep link returns a 404.
 
 ---
 
@@ -186,6 +200,9 @@ Ready to share the love with the world?
 | Styles broken | Ensure Tailwind is running (`npm run dev`) |
 | Animations laggy | Enable hardware acceleration (browser settings) |
 | Confirmation/reset email never arrives | Configure custom SMTP - see [step 5](#5️⃣-configure-email-auth-smtp) above. Supabase's default sender is rate-limited and unreliable. |
+| Everything suddenly fails / the app can't reach the database | On Supabase's free plan a project **pauses after about a week of no activity**. Open the Supabase dashboard and click **Restore project**. To prevent it, ping the database every few days from a scheduled job, or move to a paid plan. |
+| `npm install` / `npm run build` errors about the Node version | Use Node 20.19+ (or 22.12+) - see Requirements |
+| "Delete Forever" removes links but the account still exists | Your database is missing `delete_my_account()` - run `supabase_upgrade.sql` (step 4) |
 | App shows a blank/error page on startup | You're likely missing `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` in `.env` - the app now fails fast with a clear console error instead of silently breaking later |
 
 ---
