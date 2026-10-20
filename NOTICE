@@ -27,7 +27,8 @@ Icons (public/fonts/material-symbols-*.woff2): Material Symbols Outlined, Copyri
 Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0). Changes: reduced to the glyphs Lumine uses, with the
 axes fixed to filled, weight 400, optical size 48.
 
-Background music (public/audio/i_think_they_call_this_love.mp3): a short clip of a third-party recording. It is NOT
+Background music (public/audio/i_think_they_call_this_love.mp3): a short clip of "I Think They Call This Love" by Elliot
+James Reay. It is a third-party recording. It is NOT
 part of the Software and is not licensed under the Lumine Source-Available License; it belongs to its rights holders.
 If you run your own deployment, replace it with music you have the right to use.
 

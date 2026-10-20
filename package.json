@@ -2,7 +2,7 @@
   "name": "lumine",
   "description": "A romantic, interactive proposal website built with React, Framer Motion and Supabase, with real-time tracking and a custom dashboard.",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "SEE LICENSE IN LICENSE",
   "author": "Cloud/9 (https://github.com/Cl0ud-9)",
   "homepage": "https://lumine-eta.vercel.app",
