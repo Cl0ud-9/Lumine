@@ -525,7 +525,7 @@ const Dashboard = () => {
                             whileHover={{ scale: 1.05, rotate: 2 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setShowHelpModal(true)}
-                            className="flex-1 sm:flex-none justify-center font-['Quicksand'] px-4 sm:px-6 py-2 bg-white/40 backdrop-blur-md border-[3px] border-white shadow-lg rounded-2xl text-pink-500 font-bold flex items-center gap-2 hover:bg-white/60 transition-all text-sm sm:text-base"
+                            className="flex-1 sm:flex-none justify-center font-['Quicksand'] px-4 sm:px-6 py-2 bg-white/60 border-[3px] border-white shadow-lg rounded-2xl text-pink-500 font-bold flex items-center gap-2 hover:bg-white/80 transition-all text-sm sm:text-base"
                             style={{ transform: "rotate(1deg)" }}
                         >
                             <span aria-hidden="true" className="material-symbols-outlined text-lg sm:text-xl">lightbulb</span>

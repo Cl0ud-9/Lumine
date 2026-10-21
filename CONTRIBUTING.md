@@ -41,7 +41,8 @@ through it, including email settings.
   decorative icons marked `aria-hidden`. Dialogs close with Escape. Run [axe](https://www.deque.com/axe/) on anything
   you touch.
 - **Fast.** Keep the recipient's page light: it must not import `@supabase/supabase-js` (use `src/lib/publicRpc.js`).
-  Avoid a live `backdrop-filter` over anything that animates. Run Lighthouse on pages you change.
+  Don't use `backdrop-filter`, and animate only `transform` / `opacity` (not `background-position`, `width` or
+  `box-shadow`). Run Lighthouse on pages you change.
 - **Animations use `m.*`, not `motion.*`.** They are lazy-loaded through `<LazyMotion strict>`.
 - **New icons:** use the icon in JSX, then run `npm run icons` and commit the changed files in `public/fonts`,
   `src/index.css` and `index.html`. `npm run lint` fails if you forget.

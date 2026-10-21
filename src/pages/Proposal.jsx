@@ -617,7 +617,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                             YES!
                                             <span aria-hidden="true" className="material-symbols-outlined text-4xl">favorite</span>
                                         </span>
-                                        <span aria-hidden="true" className="absolute -top-4 -right-4 material-symbols-outlined text-white opacity-0 group-hover:opacity-100 transition-opacity">auto_fix_high</span>
+                                        <span aria-hidden="true" className="absolute top-1.5 right-3 material-symbols-outlined text-white text-xl opacity-0 group-hover:opacity-100 transition-opacity">auto_fix_high</span>
                                     </m.button>
                                     </m.div>
 

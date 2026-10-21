@@ -36,7 +36,7 @@ for yourself.
 - 💌 A "No" button that dodges, shrinks and teases; a "Yes" that triggers a celebration.
 - 🎵 Background music on the celebration page with a mute button (browsers that block autoplay get a one-tap fix; the clip plays once).
 - 🖱️ A heart cursor that becomes a pointing glove over buttons, with a short sparkly trail - aligned to the real click point, off on touch devices.
-- 🎨 Frosted-glass cards, pastel gradients and bubbly animations, with one consistent icon set (Material Symbols) and colour theme everywhere.
+- 🎨 Glassy cards, pastel gradients and bubbly animations, with one consistent icon set (Material Symbols) and colour theme everywhere.
 
 **The dashboard**
 - 📊 Real-time stats: when each link was opened, every visit, "No" clicks, and time to "Yes".
@@ -250,9 +250,13 @@ What made the difference:
 - **The recipient's page no longer loads the Supabase client.** It makes 3 tiny RPC calls with a plain `fetch`
   (`src/lib/publicRpc.js`); `@supabase/supabase-js` (~45 KB gzipped) only loads for login / dashboard.
 - **Framer Motion loads lazily** (`<LazyMotion>` + `m.*` components) and the celebration screen is its own chunk.
-- **No live backdrop blur where things move behind it.** `backdrop-filter` re-blurs everything behind an element
-  on every frame it changes; on the proposal / celebration cards (hearts and confetti float behind them) and on
-  the modal overlays that alone cost 10-35 fps. Those use a denser flat fill instead (`.sticker-card--flat`).
+- **No live backdrop blur anywhere.** `backdrop-filter` re-blurs everything behind an element on every frame it
+  changes, and something always animates behind the cards (orbs, hearts, confetti): it cost 10-35 fps. The glass
+  cards are a denser translucent white fill instead (`.sticker-card`), which looks almost identical.
+- **Only compositor-friendly animation.** The shimmering buttons slide an oversized gradient layer with `transform`
+  (animating `background-position` repainted every button on every frame), the floating hearts / confetti are plain
+  CSS keyframes (`FloatingParticles.jsx`) rather than per-frame JavaScript, and the cursor trail is drawn on one
+  small `<canvas>` instead of 24 SVG lines whose attributes were rewritten every frame.
 - **`dvh` units** so full-screen pages don't scroll a few pixels on phones because of the browser's address bar.
 
 To re-measure: `npm run build && npm run preview`, then run Lighthouse from Chrome DevTools (use an
@@ -287,9 +291,11 @@ A few things that look odd but are deliberate - each one fixed a real bug:
 - **Use `m.div`, not `motion.div`.** Animations are lazy-loaded through `<LazyMotion strict>`; a stray
   `motion.*` import throws in development. The feature set (`src/lib/motionFeatures.js`) is `domAnimation`;
   switch it to `domMax` if you ever add `layout` / `layoutId` / `drag`.
-- **`.sticker-card--flat` must stay `transform-style: flat`.** The proposal card tilts with the mouse using
-  `preserve-3d`. A `backdrop-filter` silently forces flat rendering; removing it without forcing flat made
-  Chromium mis-hit-test parts of the Yes button.
+- **`.sticker-card` must stay `transform-style: flat`.** The proposal card tilts with the mouse using
+  `preserve-3d`. A `backdrop-filter` used to force flat rendering silently; once it was removed, the explicit
+  `flat` is what stops Chromium mis-hit-testing parts of the Yes button.
+- **Don't put `overflow: hidden` on `.material-symbols-outlined`.** Some glyphs (the music note and its slash,
+  hearts, sparkles) are drawn a little outside their 1em box and get cropped.
 - **Dialogs: panel `overflow-hidden`, content in `.modal-scroll`.** Putting `overflow-y: auto` on the panel
   itself made decorative blobs hanging past its edge produce a sideways scrollbar.
 - **Short screens (landscape phones):** layouts shrink with the arbitrary variant

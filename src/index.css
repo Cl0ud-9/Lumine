@@ -85,15 +85,6 @@
     *::after {
       cursor: none !important;
     }
-
-    /* ...except over text entry, where the normal I-beam is shown (and CustomCursor hides itself)
-       so a caret can be placed precisely. More specific than `*`, so it wins despite both being
-       !important. */
-    input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="range"]),
-    textarea,
-    [contenteditable="true"] {
-      cursor: text !important;
-    }
   }
 }
 
@@ -150,17 +141,22 @@
   }
 }
 
-@keyframes shimmer {
+/* Background gradients on the "bubbly" buttons drift sideways. Animating `background-position`
+   forces the browser to REPAINT the button on every frame (main thread); with nine "Copy URL"
+   buttons plus the others that was a constant stream of paints on the dashboard (measured: 53fps
+   with 12% slow frames, 60fps with it off). The gradient now lives on an oversized layer that is
+   moved with `transform`, which the compositor animates without any repainting. */
+@keyframes shimmerSlide {
   0% {
-    background-position: 0% 50%;
+    transform: translate3d(0, 0, 0);
   }
 
   50% {
-    background-position: 100% 50%;
+    transform: translate3d(-66.6667%, 0, 0);
   }
 
   100% {
-    background-position: 0% 50%;
+    transform: translate3d(0, 0, 0);
   }
 }
 
@@ -173,53 +169,182 @@
     radial-gradient(at 0% 100%, hsla(350, 100%, 80%, 1) 0px, transparent 50%);
 }
 
+/* Floating hearts / sparkles / confetti (components/FloatingParticles.jsx). Pure transform + opacity
+   keyframes, so they run on the compositor. Per-particle timing arrives as CSS variables. The
+   keyframes reproduce the previous Framer Motion tweens exactly (linear, infinite, delay applied
+   once before the first run - `backwards` fill shows the first keyframe during that delay). */
+.floating-particle {
+  position: absolute;
+  top: 0;
+  will-change: transform, opacity;
+  animation-duration: var(--fp-dur);
+  animation-delay: var(--fp-delay);
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+  animation-fill-mode: backwards;
+}
+
+.floating-particle--rise {
+  animation-name: particleRise;
+}
+
+.floating-particle--fall {
+  animation-name: particleFall;
+}
+
+@keyframes particleRise {
+  0% {
+    transform: translate3d(0, 110vh, 0);
+    opacity: 0;
+  }
+
+  50% {
+    transform: translate3d(0, 50vh, 0);
+    opacity: var(--fp-peak, 0.8);
+  }
+
+  100% {
+    transform: translate3d(0, -10vh, 0);
+    opacity: 0;
+  }
+}
+
+@keyframes particleFall {
+  0% {
+    transform: translate3d(0, -50px, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  50% {
+    transform: translate3d(var(--fp-drift, 0px), calc(55vh - 25px), 0) rotate(360deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate3d(0, 110vh, 0) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+/* "Reduce motion": the particles are simply not shown (as before, when their tween duration was 0). */
+.floating-particle--still {
+  animation: none;
+  opacity: 0;
+}
+
 .floating-orb {
   animation: drift 15s infinite ease-in-out;
   filter: blur(60px);
 }
 
-.sticker-card {
-  background: var(--glass-white);
-  backdrop-filter: blur(20px);
+/* The "glass" cards are a translucent white fill, NOT a live backdrop blur. `backdrop-filter`
+   re-blurs everything behind the element on every frame anything behind it changes, and behind
+   these cards there are always animated things (drifting orbs, floating hearts and confetti). It
+   cost 10-35fps in measurements (proposal / celebration / dialogs) and made the dashboard drop
+   frames with several cards on screen. The denser fill looks almost the same.
+
+   IMPORTANT - keep `transform-style: flat`. The proposal card tilts with the mouse using
+   `preserve-3d` set inline, and a backdrop-filter used to force `flat` implicitly. Without an
+   explicit flat, preserve-3d becomes genuinely active and Chromium mis-hit-tests parts of the Yes
+   button inside the tilted card. `!important` beats the inline style. */
+.sticker-card,
+.sticker-card--flat {
+  background: rgba(255, 255, 255, 0.62);
   border: 4px solid white;
   box-shadow:
     0 20px 40px rgba(0, 0, 0, 0.1),
     inset 0 0 20px rgba(255, 255, 255, 0.5);
   transform: rotate(-1deg);
-}
-
-/* Frosted glass costs a full re-blur of everything behind the card on EVERY frame it changes.
-   That is cheap on the login / dashboard pages (static backdrop) but the proposal and
-   celebration pages animate hearts, confetti and orbs behind a large card - measured, that
-   backdrop blur alone dropped them from a steady 60fps to ~46-52fps (software rendering; real
-   GPUs fare better but low-end phones do not). The flat variant keeps the same look with a
-   denser white fill instead of a live blur. */
-.sticker-card--flat {
-  background: rgba(255, 255, 255, 0.62);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  /* IMPORTANT - must stay flat. The proposal card's wrapper sets `transform-style: preserve-3d`
-     inline (for the mouse-tilt), and any element with a backdrop-filter is silently forced to
-     `flat` by the browser. Dropping the filter without this line left preserve-3d genuinely
-     active, and Chromium then mis-hit-tested parts of the Yes button inside the tilted card
-     (clicks landed on its wrapper and did nothing). `!important` beats the inline style. */
   transform-style: flat !important;
 }
 
-.bubbly-yes {
-  background: linear-gradient(-45deg, #ff7a9d, #ffadd1, #d89fff, #ff6b8f);
-  background-size: 300% 300%;
-  animation: shimmer 5s infinite linear;
+/* ---- "Bubbly" 3D buttons (Yes / primary, Copy, Delete) -------------------------------------
+   Each button clips an oversized gradient layer (::before, 3x as wide and tall as the button, so
+   the visible window and the colour travel are exactly what `background-size: 300% 300%` gave)
+   and slides it with a compositor-only transform. ::after carries the inner highlight above the
+   gradient. `overflow: hidden` clips those layers to the rounded button; the button's own
+   box-shadow (the 3D "edge") is outside its content box and is not clipped. */
+.bubbly-yes,
+.bubbly-copy,
+.bubbly-delete {
+  --bubbly-gradient: linear-gradient(-45deg, #ff4d6d, #ff85a1, #ff2e63, #ff99ac);
+  --bubbly-edge: #c92a4e;
+  --bubbly-glow: rgba(255, 77, 109, 0.4);
+  background-color: #ff4d6d;
+}
+
+.bubbly-yes,
+.bubbly-copy,
+.bubbly-delete {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   box-shadow:
-    0 10px 0 #e06a86,
-    0 15px 30px rgba(255, 133, 161, 0.4),
-    inset 0 5px 15px rgba(255, 255, 255, 0.8);
+    0 10px 0 var(--bubbly-edge),
+    0 15px 30px var(--bubbly-glow);
   transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.bubbly-yes:active {
+.bubbly-yes::before,
+.bubbly-copy::before,
+.bubbly-delete::before {
+  content: '';
+  position: absolute;
+  top: -100%;
+  bottom: -100%;
+  left: 0;
+  width: 300%;
+  background: var(--bubbly-gradient);
+  animation: shimmerSlide 5s infinite linear;
+  will-change: transform;
+  pointer-events: none;
+  z-index: -2;
+}
+
+.bubbly-yes::after,
+.bubbly-copy::after,
+.bubbly-delete::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 5px 15px rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.bubbly-yes:active,
+.bubbly-copy:active,
+.bubbly-delete:active {
   transform: translateY(6px);
-  box-shadow: 0 4px 0 #e06a86;
+  box-shadow: 0 4px 0 var(--bubbly-edge);
+}
+
+.bubbly-yes:active::after,
+.bubbly-copy:active::after,
+.bubbly-delete:active::after {
+  opacity: 0;
+}
+
+.bubbly-yes {
+  --bubbly-gradient: linear-gradient(-45deg, #ff7a9d, #ffadd1, #d89fff, #ff6b8f);
+  --bubbly-edge: #e06a86;
+  --bubbly-glow: rgba(255, 133, 161, 0.4);
+  background-color: #ff7a9d;
+}
+
+.bubbly-copy {
+  --bubbly-gradient: linear-gradient(-45deg, #c4b5fd, #cb9bff, #a78bfa, #d8b4fe);
+  --bubbly-edge: #8b5cf6;
+  --bubbly-glow: rgba(167, 139, 250, 0.4);
+  background-color: #c4b5fd;
+}
+
+.bubbly-delete {
+  --bubbly-gradient: linear-gradient(-45deg, #ff4d6d, #ff85a1, #ff2e63, #ff99ac);
+  --bubbly-edge: #c92a4e;
+  --bubbly-glow: rgba(255, 77, 109, 0.4);
+  background-color: #ff4d6d;
 }
 
 .sticker-no {
@@ -254,9 +379,11 @@ textarea {
 
 /* Icon font base styles. In the components layer so Tailwind's text-* size utilities still win.
    The subset font is a single fixed instance (filled, weight 400, optical size 48), so there
-   are no variation axes to set. width/height 1em + overflow hidden: every glyph is exactly one
-   em wide, so the icon box never changes size when the font finishes loading (it used to
-   reflow from the width of the ligature text, e.g. "favorite", to one em). */
+   are no variation axes to set. width/height 1em: every glyph is exactly one em wide, so the
+   icon box never changes size when the font finishes loading (it used to reflow from the width
+   of the ligature text, e.g. "favorite", to one em).
+   Do NOT add `overflow: hidden` here: several glyphs (the music note / slash, hearts, sparkles)
+   are drawn slightly outside their 1em box and the clip cropped them. */
 @layer components {
   .material-symbols-outlined {
     font-family: 'Material Symbols Outlined';
@@ -269,7 +396,6 @@ textarea {
     display: inline-block;
     width: 1em;
     height: 1em;
-    overflow: hidden;
     white-space: nowrap;
     word-wrap: normal;
     direction: ltr;
@@ -288,6 +414,16 @@ textarea {
 /* ---- Custom cursor (see components/CustomCursor.jsx) ------------------------------------ */
 .custom-cursor {
   transition: opacity 150ms ease-out;
+}
+
+/* The trail canvas. It is moved to the pointer from JavaScript every frame, so it is anchored at
+   the top-left of the overlay and only ever transformed. */
+.custom-cursor-trail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+  pointer-events: none;
 }
 
 /* Zero-size box that sits exactly on the pointer; both images are positioned by their hotspot
@@ -434,38 +570,6 @@ textarea {
   animation: float 6s ease-in-out infinite;
 }
 
-.bubbly-copy {
-  background: linear-gradient(-45deg, #c4b5fd, #cb9bff, #a78bfa, #d8b4fe);
-  background-size: 300% 300%;
-  animation: shimmer 5s infinite linear;
-  box-shadow:
-    0 10px 0 #8b5cf6,
-    0 15px 30px rgba(167, 139, 250, 0.4),
-    inset 0 5px 15px rgba(255, 255, 255, 0.8);
-  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.bubbly-copy:active {
-  transform: translateY(6px);
-  box-shadow: 0 4px 0 #8b5cf6;
-}
-
-.bubbly-delete {
-  background: linear-gradient(-45deg, #ff4d6d, #ff85a1, #ff2e63, #ff99ac);
-  background-size: 300% 300%;
-  animation: shimmer 5s infinite linear;
-  box-shadow:
-    0 10px 0 #c92a4e,
-    0 15px 30px rgba(255, 77, 109, 0.4),
-    inset 0 5px 15px rgba(255, 255, 255, 0.8);
-  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.bubbly-delete:active {
-  transform: translateY(6px);
-  box-shadow: 0 4px 0 #c92a4e;
-}
-
 /* Custom Scrollbar - hide native scrollbar completely to prevent cursor flicker.
    Scroll still works via mousewheel / trackpad / touch. */
 .custom-scrollbar {
@@ -545,13 +649,18 @@ html {
    check; these plain-CSS ones (drift/shimmer/float/heartbeat) had no such gate. */
 @media (prefers-reduced-motion: reduce) {
 
+  .floating-particle {
+    animation: none;
+    opacity: 0;
+  }
+
   .floating-orb,
   .bg-animated-pastel,
   .floating-heart,
   .animate-heartbeat,
-  .bubbly-yes,
-  .bubbly-copy,
-  .bubbly-delete {
+  .bubbly-yes::before,
+  .bubbly-copy::before,
+  .bubbly-delete::before {
     animation: none !important;
   }
 

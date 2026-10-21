@@ -3,11 +3,11 @@ import { m, useMotionValue } from 'framer-motion';
 import heartCursor from '../assets/cursors/heart-cursor.png';
 import gloveCursor from '../assets/cursors/glove-cursor.png';
 
-// Trail "worm" - each line chases the point ahead of it with simple lerp easing.
-// Rendered via direct DOM attribute writes inside a single requestAnimationFrame loop
-// instead of one GSAP tween-with-JS-modifier per line (previously 50 tweens x 2 axis
-// callbacks = up to 100 JS callback invocations every frame). This is the biggest single
-// perf win in the app since CustomCursor is mounted for the whole proposal/celebration flow.
+// Trail "worm" - each segment chases the point ahead of it with simple lerp easing, drawn on ONE
+// small canvas that follows the pointer. It used to be 24 SVG <line> elements whose attributes
+// and opacity were rewritten ~120 times per frame; every write invalidates style/layout, which
+// showed up as dropped frames while the mouse moved on the busier pages (celebration went from
+// ~48fps to ~58fps with the trail removed). Canvas drawing touches no DOM at all.
 const TRAIL_LENGTH = 24;
 const TRAIL_EASE = 0.5;
 // Hard cap on how far any link of the trail may lag behind the one in front of it. Without
@@ -17,9 +17,13 @@ const TRAIL_EASE = 0.5;
 const MAX_SEGMENT = 2.5;
 const REVEAL_MS = 500;
 // Once every trail point is within this many px (sub-pixel, invisible) of the pointer the worm has stopped moving,
-// so the frame loop can sleep until the next mousemove instead of rewriting 24 SVG lines
+// so the frame loop can sleep until the next mousemove instead of redrawing
 // 60 times a second for a cursor that is sitting still.
 const SETTLED_EPSILON = 0.25;
+// The canvas is a square centred on the pointer. The tail is at most TRAIL_LENGTH * MAX_SEGMENT
+// (60px) long and starts up to ~12px from the pointer, so 160px (80 each side) always contains it.
+const TRAIL_BOX = 160;
+const TRAIL_STROKE = Array.from({ length: TRAIL_LENGTH }, (_, i) => `hsl(340, 100%, ${60 + (i / TRAIL_LENGTH) * 30}%)`); // 60% -> 90% lightness toward the tail
 
 // Rendered size of both cursor images, and the point of each image that must sit exactly on the
 // real pointer (measured from the artwork's opaque pixels, in the 40px render box):
@@ -30,12 +34,22 @@ const CURSOR_SIZE = 40;
 const HEART_HOTSPOT = { x: 20, y: 17.2 };
 const GLOVE_HOTSPOT = { x: 4, y: 4 };
 
-// Anything that behaves like a button for the "hover" cursor. `.cursor-pointer` covers the
-// non-<button> click targets (e.g. the celebration page's tappable heart and badges).
-const CLICKABLE_SELECTOR = 'button, a, select, summary, [role="button"], .cursor-pointer';
-// Text entry: the custom cursor steps aside and the browser's own I-beam shows (see index.css),
-// so people can place a caret precisely instead of aiming with a heart.
-const TEXT_FIELD_SELECTOR = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="range"]), textarea, [contenteditable="true"]';
+// Where the trail is anchored, relative to the pointer, for each shape: the visible CENTRE of the
+// artwork, so the coloured tail always grows out from inside the cursor. For the heart that is the
+// pointer itself (its hotspot is its centre). The glove's hotspot is its fingertip, which is on
+// its edge, so anchoring there made the tail start outside the glove, off to its upper left; its
+// body centre (13.1, 14.5 in the 40px box, scaled by the 1.08 hover pop) is the right anchor.
+const HOVER_SCALE = 1.08;
+const ANCHOR_HEART = { x: 0, y: 0 };
+const ANCHOR_GLOVE = { x: (13.1 - GLOVE_HOTSPOT.x) * HOVER_SCALE, y: (14.5 - GLOVE_HOTSPOT.y) * HOVER_SCALE };
+// How quickly the anchor eases between the two (per frame) when the shape changes, so the tail
+// glides instead of jumping.
+const ANCHOR_EASE = 0.3;
+
+// Anything that behaves like a button for the "hover" cursor, including text fields (the glove
+// is shown over inputs, as it always was). `.cursor-pointer` covers the non-<button> click
+// targets (e.g. the celebration page's tappable heart and badges).
+const CLICKABLE_SELECTOR = 'button, a, input, select, textarea, summary, [role="button"], .cursor-pointer';
 
 const CustomCursor = () => {
     const [isTouch, setIsTouch] = useState(false);
@@ -43,7 +57,7 @@ const CustomCursor = () => {
     const [isHovering, setIsHovering] = useState(false);
     const cursorX = useMotionValue(-100);
     const cursorY = useMotionValue(-100);
-    const lineRefs = useRef([]);
+    const trailRef = useRef(null);
     const overlayRef = useRef(null);
 
     useEffect(() => {
@@ -70,8 +84,9 @@ const CustomCursor = () => {
         let revealStart = null;
         let hovering = false;
         let inWindow = true;
-        let overTextField = false;
         let shown = true;
+        // Current (eased) trail anchor offset from the pointer - see ANCHOR_* above.
+        const anchor = { x: ANCHOR_HEART.x, y: ANCHOR_HEART.y };
         let lastX = null;
         let lastY = null;
         let rafId = null;
@@ -79,13 +94,43 @@ const CustomCursor = () => {
         const hoverTimers = [];
         const reduceTrail = prefersReducedMotion;
 
+        // ---- trail canvas (sharp on high-DPI screens)
+        const canvas = trailRef.current;
+        const ctx = canvas ? canvas.getContext('2d') : null;
+        const setupCanvas = () => {
+            if (!canvas || !ctx) return;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.round(TRAIL_BOX * dpr);
+            canvas.height = Math.round(TRAIL_BOX * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+        };
+        setupCanvas();
+        window.addEventListener('resize', setupCanvas);
+
         const tick = (now) => {
             if (revealStart === null) revealStart = now;
             const revealProgress = Math.min(1, (now - revealStart) / REVEAL_MS);
 
-            let leaderX = pointer.x;
-            let leaderY = pointer.y;
-            let maxDelta = 0;
+            // Ease the anchor towards the current shape's centre, then grow the tail from there.
+            const target = hovering ? ANCHOR_GLOVE : ANCHOR_HEART;
+            const anchorDx = target.x - anchor.x;
+            const anchorDy = target.y - anchor.y;
+            anchor.x += anchorDx * ANCHOR_EASE;
+            anchor.y += anchorDy * ANCHOR_EASE;
+
+            // The canvas is centred on the pointer; draw in its local coordinates.
+            const originX = Math.round(pointer.x - TRAIL_BOX / 2);
+            const originY = Math.round(pointer.y - TRAIL_BOX / 2);
+            if (canvas && ctx) {
+                canvas.style.transform = `translate3d(${originX}px, ${originY}px, 0)`;
+                ctx.clearRect(0, 0, TRAIL_BOX, TRAIL_BOX);
+            }
+
+            let leaderX = pointer.x + anchor.x;
+            let leaderY = pointer.y + anchor.y;
+            let maxDelta = Math.max(Math.abs(anchorDx), Math.abs(anchorDy));
             for (let i = 0; i < TRAIL_LENGTH; i++) {
                 const p = points[i];
                 const dx = leaderX - p.x;
@@ -103,13 +148,13 @@ const CustomCursor = () => {
                     p.y = leaderY + (lagY * MAX_SEGMENT) / lag;
                 }
 
-                const line = lineRefs.current[i];
-                if (line) {
-                    line.setAttribute('x1', p.x);
-                    line.setAttribute('y1', p.y);
-                    line.setAttribute('x2', leaderX);
-                    line.setAttribute('y2', leaderY);
-                    line.style.opacity = ((TRAIL_LENGTH - i) / TRAIL_LENGTH) * revealProgress;
+                if (ctx) {
+                    ctx.globalAlpha = ((TRAIL_LENGTH - i) / TRAIL_LENGTH) * revealProgress;
+                    ctx.strokeStyle = TRAIL_STROKE[i];
+                    ctx.beginPath();
+                    ctx.moveTo(p.x - originX, p.y - originY);
+                    ctx.lineTo(leaderX - originX, leaderY - originY);
+                    ctx.stroke();
                 }
 
                 leaderX = p.x;
@@ -130,27 +175,27 @@ const CustomCursor = () => {
             if (isClickable !== hovering) {
                 hovering = isClickable;
                 setIsHovering(isClickable);
+                wake(); // the trail anchor has to ease to the new shape even if the mouse is still
             }
         };
 
-        // Visible only while the mouse is inside the window and not over a text field.
+        // Visible only while the mouse is inside the window.
         const applyVisibility = () => {
-            const next = inWindow && !overTextField;
-            if (next !== shown && overlayRef.current) {
-                shown = next;
-                overlayRef.current.style.opacity = next ? '1' : '0';
+            if (inWindow !== shown && overlayRef.current) {
+                shown = inWindow;
+                overlayRef.current.style.opacity = inWindow ? '1' : '0';
             }
         };
 
         const classify = (target) => {
-            overTextField = !!target?.closest?.(TEXT_FIELD_SELECTOR);
-            setHover(!overTextField && !!target?.closest?.(CLICKABLE_SELECTOR));
+            setHover(!!target?.closest?.(CLICKABLE_SELECTOR));
             applyVisibility();
         };
 
         const onMouseMove = (e) => {
             // Both images are positioned by their hotspot (see CSS / JSX below), so the pointer
-            // position IS the heart's centre / the glove's fingertip, and the trail anchors there.
+            // position IS the heart's centre / the glove's fingertip; the trail is anchored at the
+            // visible centre of whichever shape is showing (see ANCHOR_*).
             pointer.x = e.clientX;
             pointer.y = e.clientY;
             lastX = e.clientX;
@@ -204,6 +249,7 @@ const CustomCursor = () => {
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('click', onClick, true);
             window.removeEventListener('scroll', onScroll, { capture: true });
+            window.removeEventListener('resize', setupCanvas);
             document.documentElement.removeEventListener('mouseleave', onLeave);
             hoverTimers.forEach(clearTimeout);
             if (rafId !== null) cancelAnimationFrame(rafId);
@@ -216,21 +262,12 @@ const CustomCursor = () => {
     return (
         <div ref={overlayRef} className="custom-cursor pointer-events-none fixed inset-0 z-[9999] overflow-hidden">
             {!prefersReducedMotion && (
-                <svg className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true">
-                    {Array.from({ length: TRAIL_LENGTH }).map((_, i) => {
-                        const light = 60 + (i / TRAIL_LENGTH) * 30; // 60% -> 90% lightness toward the tail
-                        return (
-                            <line
-                                key={i}
-                                ref={(el) => { lineRefs.current[i] = el; }}
-                                stroke={`hsl(340, 100%, ${light}%)`}
-                                strokeWidth={2}
-                                strokeLinecap="round"
-                                style={{ opacity: 0 }}
-                            />
-                        );
-                    })}
-                </svg>
+                <canvas
+                    ref={trailRef}
+                    aria-hidden="true"
+                    className="custom-cursor-trail"
+                    style={{ width: TRAIL_BOX, height: TRAIL_BOX }}
+                />
             )}
 
             {/* Main cursor - rendered last to stay on top of the trail. The wrapper is a zero-size

@@ -8,6 +8,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and the versi
 
 ## [Unreleased]
 
+### Fixed
+
+- The music icon (and any other glyph that is drawn slightly outside its box) is no longer cropped.
+- The cursor's coloured tail now starts inside the heart / glove instead of beside it.
+- Hovering a text field shows the custom cursor again, not the native text caret.
+
+### Performance
+
+- Fewer dropped frames on the dashboard, login, proposal and celebration pages: the shimmering buttons are animated
+  with `transform` instead of `background-position`, the glass cards no longer use a live backdrop blur, the floating
+  hearts / confetti run as CSS animations, and the cursor trail is drawn on one canvas.
+
 ## [1.2.0] - 2026-10-21
 
 *Faster, safer, smoother.* ([release](https://github.com/Cl0ud-9/Lumine/releases/tag/v1.2.0))
