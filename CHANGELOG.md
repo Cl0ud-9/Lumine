@@ -8,10 +8,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and the versi
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-21
+
+*Smoother on phones.* ([release](https://github.com/Cl0ud-9/Lumine/releases/tag/v1.2.1))
+
+No database changes - there is nothing to re-run in Supabase.
+
 ### Fixed
 
 - The music icon (and any other glyph that is drawn slightly outside its box) is no longer cropped.
 - The cursor's coloured tail now starts inside the heart / glove instead of beside it.
+- The small wand sparkle that appeared in the corner of the **Yes** button is gone.
 - Hovering a text field shows the custom cursor again, not the native text caret.
 - **Phone flicker** from "Preparing your heart" through the colour wipe, the proposal and the celebration, including
   the YES / music badges: the soft background orbs no longer use a blur filter, the loading background and progress
@@ -94,7 +101,8 @@ visit history is not capped.
 - A parallax effect, a real-time dashboard to create links and watch views and responses, background music with a
   mute button, glassmorphism styling with custom cursors, full responsiveness, and Supabase-powered accounts.
 
-[Unreleased]: https://github.com/Cl0ud-9/Lumine/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/Cl0ud-9/Lumine/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/Cl0ud-9/Lumine/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Cl0ud-9/Lumine/compare/v1.1...v1.2.0
 [1.1]: https://github.com/Cl0ud-9/Lumine/compare/v1.0.0...v1.1
 [1.0.0]: https://github.com/Cl0ud-9/Lumine/releases/tag/v1.0.0
