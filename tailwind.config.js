@@ -76,4 +76,10 @@ export default {
         },
     },
     plugins: [],
+    // `hover:` styles only apply on devices that can really hover. On a phone the last element
+    // tapped otherwise keeps its hover look until something else is tapped ("sticky hover"), which
+    // showed up as buttons and badges flashing / staying highlighted after a tap.
+    future: {
+        hoverOnlyWhenSupported: true,
+    },
 }

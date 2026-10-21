@@ -77,6 +77,18 @@
     /* Optional: Very subtle fixed gradient overlay if needed, but solid pink is key for reference match */
   }
 
+  /* Touch screens: no grey/blue flash over a tapped button or badge (it read as a flicker on the
+     Yes buttons), and no 300ms double-tap-zoom delay on taps. Keyboard focus rings are untouched. */
+  button,
+  a,
+  summary,
+  select,
+  [role="button"],
+  .cursor-pointer {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
   /* Force hide default cursor globally on non-touch devices to ensure custom cursor visibility */
   @media (pointer: fine) {
 
@@ -232,9 +244,30 @@
   opacity: 0;
 }
 
+/* The soft "orbs" drifting in the background. They used to be flat discs with `filter: blur(60px)`;
+   a blur filter on an animated layer is re-computed by the GPU on every frame, three of them at
+   once overwhelmed phone GPUs (dropped tiles = flicker, especially while the page fades/clips in).
+   The same soft glow is now a radial gradient, which is painted once and then only moved. The
+   `scale` widens it to cover the blur's old fall-off. The colour comes from the Tailwind
+   background class already on each orb, mapped to --orb below. */
 .floating-orb {
+  --orb: #f9a8d4;
   animation: drift 15s infinite ease-in-out;
-  filter: blur(60px);
+  scale: 1.5;
+  background-color: transparent !important;
+  background-image: radial-gradient(closest-side, var(--orb) 38%, transparent 100%);
+}
+
+.floating-orb.bg-pink-300 {
+  --orb: #f9a8d4;
+}
+
+.floating-orb.bg-purple-200 {
+  --orb: #e9d5ff;
+}
+
+.floating-orb.bg-yellow-100 {
+  --orb: #fef9c3;
 }
 
 /* The "glass" cards are a translucent white fill, NOT a live backdrop blur. `backdrop-filter`
@@ -282,7 +315,9 @@
   box-shadow:
     0 10px 0 var(--bubbly-edge),
     0 15px 30px var(--bubbly-glow);
-  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition:
+    transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    box-shadow 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .bubbly-yes::before,
@@ -467,20 +502,6 @@ textarea {
 }
 
 /* Loading Screen Animations */
-@keyframes gradientFlow {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
 @keyframes heartbeat {
   0% {
     transform: scale(1);
@@ -505,11 +526,11 @@ textarea {
 
 @keyframes loadingFill {
   0% {
-    width: 0%;
+    transform: translate3d(-100%, 0, 0);
   }
 
   100% {
-    width: 100%;
+    transform: translate3d(0, 0, 0);
   }
 }
 
@@ -527,10 +548,32 @@ textarea {
   }
 }
 
+/* Loading-screen background. Animating `background-position` over the whole screen repainted every
+   pixel on every frame (visible as flicker on phones). The base is static and a second gradient
+   fades in and out above it, which only touches opacity. */
 .bg-animated-pastel {
   background: linear-gradient(-45deg, #fff0f3, #ffeef2, #f8f6f6, #fff5f7);
-  background-size: 400% 400%;
-  animation: gradientFlow 10s ease infinite;
+}
+
+.bg-animated-pastel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(45deg, #fff5f7, #f8f6f6, #ffeef2, #fff0f3);
+  animation: pastelPulse 10s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pastelPulse {
+  0%,
+  100% {
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 .glossy-bubble-heart {
@@ -549,9 +592,10 @@ textarea {
   left: 20%;
   width: 35%;
   height: 25%;
-  background: rgba(255, 255, 255, 0.45);
+  /* soft highlight drawn with a gradient - `filter: blur()` inside a scaling (heartbeat) layer
+     flickers on mobile Safari */
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.6) 50%, rgba(255, 255, 255, 0) 100%);
   border-radius: 50%;
-  filter: blur(3px);
   transform: rotate(-15deg);
 }
 
@@ -559,7 +603,11 @@ textarea {
   animation: heartbeat 1.5s ease-in-out infinite;
 }
 
+/* Slides a full-width bar in from the left (the track clips it) instead of animating `width`,
+   which re-laid-out the bar on every frame. */
 .progress-fill {
+  width: 100%;
+  will-change: transform;
   animation: loadingFill 4s ease-in-out forwards;
   background: linear-gradient(90deg, #ff758c, #ee2b5b);
 }
@@ -655,7 +703,7 @@ html {
   }
 
   .floating-orb,
-  .bg-animated-pastel,
+  .bg-animated-pastel::before,
   .floating-heart,
   .animate-heartbeat,
   .bubbly-yes::before,

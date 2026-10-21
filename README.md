@@ -253,6 +253,8 @@ What made the difference:
 - **No live backdrop blur anywhere.** `backdrop-filter` re-blurs everything behind an element on every frame it
   changes, and something always animates behind the cards (orbs, hearts, confetti): it cost 10-35 fps. The glass
   cards are a denser translucent white fill instead (`.sticker-card`), which looks almost identical.
+- **No `filter: blur()` on moving things.** The soft background orbs are radial gradients, not blurred discs: a blur
+  filter on an animated layer is recomputed by the GPU every frame and made phones flicker.
 - **Only compositor-friendly animation.** The shimmering buttons slide an oversized gradient layer with `transform`
   (animating `background-position` repainted every button on every frame), the floating hearts / confetti are plain
   CSS keyframes (`FloatingParticles.jsx`) rather than per-frame JavaScript, and the cursor trail is drawn on one
@@ -294,6 +296,10 @@ A few things that look odd but are deliberate - each one fixed a real bug:
 - **`.sticker-card` must stay `transform-style: flat`.** The proposal card tilts with the mouse using
   `preserve-3d`. A `backdrop-filter` used to force flat rendering silently; once it was removed, the explicit
   `flat` is what stops Chromium mis-hit-testing parts of the Yes button.
+- **Touch screens get lighter variants** (`src/lib/device.js`): the proposal and celebration fade in instead of
+  revealing through an animated `clip-path`, there are fewer floating particles, and the celebration's pointer
+  parallax only reacts to a real mouse (a tap fires emulated mouse events that used to shove the badges around).
+  `hover:` styles only apply on devices that can hover (`hoverOnlyWhenSupported` in `tailwind.config.js`).
 - **Don't put `overflow: hidden` on `.material-symbols-outlined`.** Some glyphs (the music note and its slash,
   hearts, sparkles) are drawn a little outside their 1em box and get cropped.
 - **Dialogs: panel `overflow-hidden`, content in `.modal-scroll`.** Putting `overflow-y: auto` on the panel

@@ -7,6 +7,7 @@ import { useFloatingElements } from '../hooks/useFloatingElements';
 import FloatingParticles from '../components/FloatingParticles';
 import { logger } from '../lib/logger';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { isCoarsePointer } from '../lib/device';
 
 
 const NO_PHRASES = [
@@ -148,8 +149,18 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         y.set(0);
     };
 
+    // Touch screens: the page fades in under the colour wipe instead of being revealed by an animated
+    // clip-path (see the root element below). Decided once at mount.
+    const [fadeReveal] = useState(isCoarsePointer);
+
     // Trimmed from 15/12 to 10/8 - visually near-identical ambient density at noticeably lower cost.
-    const elements = useFloatingElements({ heartCount: 10, sparkleCount: 8, heartColor: '#ec4899' });
+    // Phones get fewer still: every particle is its own GPU layer, and too many of them made
+    // mobile browsers drop tiles (flicker).
+    const elements = useFloatingElements({
+        heartCount: fadeReveal ? 7 : 10,
+        sparkleCount: fadeReveal ? 5 : 8,
+        heartColor: '#ec4899',
+    });
 
 
 
@@ -409,8 +420,11 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
         <div className="relative min-h-screen">
             <m.div
                 ref={ref}
-                initial={{ clipPath: "circle(0% at 50% 50%)" }}
-                animate={{ clipPath: "circle(150% at 50% 50%)" }}
+                // Desktop: the page opens out of the middle of the colour wipe (clip-path). Animating
+                // clip-path over a whole animated page re-paints it every frame, which flickered on
+                // phones, so touch screens fade the page in over the wipe instead (same timing).
+                initial={fadeReveal ? { opacity: 0 } : { clipPath: "circle(0% at 50% 50%)" }}
+                animate={fadeReveal ? { opacity: 1 } : { clipPath: "circle(150% at 50% 50%)" }}
                 exit={{ opacity: 0, transition: { duration: 0.1 } }} // Keep instant exit for when we go to Celebration
                 transition={{
                     duration: 1.5,
@@ -611,7 +625,7 @@ const Proposal = React.forwardRef(({ onTransition }, ref) => {
                                         onClick={handleYes}
                                         disabled={isSending || !isEntryComplete}
                                         style={{ transform: "translateZ(50px)" }}
-                                        className="bubbly-yes group relative px-7 py-3 md:px-12 md:py-6 rounded-[2.5rem] text-lg md:text-2xl font-['Fredoka'] text-white uppercase tracking-wider transition-transform active:scale-95 z-50"
+                                        className="bubbly-yes group relative px-7 py-3 md:px-12 md:py-6 rounded-[2.5rem] text-lg md:text-2xl font-['Fredoka'] text-white uppercase tracking-wider !transition-none z-50 touch-manipulation"
                                     >
                                         <span className="relative z-10 flex items-center gap-3 font-['Fredoka'] font-semibold">
                                             YES!

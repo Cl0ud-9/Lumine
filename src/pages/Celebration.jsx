@@ -4,6 +4,7 @@ import { useFloatingElements } from '../hooks/useFloatingElements';
 import FloatingParticles from '../components/FloatingParticles';
 import { logger } from '../lib/logger';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { isCoarsePointer } from '../lib/device';
 
 
 const CELEBRATION_PHRASES = [
@@ -22,6 +23,8 @@ const Celebration = forwardRef((props, ref) => {
     usePageTitle('Yay!');
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    // Touch screens get the lighter variants (fade-in reveal, fewer particles, no pointer parallax).
+    const [isTouch] = useState(isCoarsePointer);
     const controls = useAnimation(); // Animation controls for the emoji
     const yesControls = useAnimation(); // Animation controls for the YES button
     const musicControls = useAnimation(); // Animation controls for the music button
@@ -80,10 +83,11 @@ const Celebration = forwardRef((props, ref) => {
     // Trimmed from 15/12/30 (57 concurrently-animating elements) to 8/6/16 (30) - the ambient
     // field still reads as "full" but roughly halves the number of infinite Framer Motion loops
     // running at once, which is what was making the click response feel laggy.
+    // Phones: 6/4/10 - each particle is its own GPU layer and too many made mobile browsers drop tiles.
     const elements = useFloatingElements({
-        heartCount: 8,
-        sparkleCount: 6,
-        confettiCount: 16,
+        heartCount: isTouch ? 6 : 8,
+        sparkleCount: isTouch ? 4 : 6,
+        confettiCount: isTouch ? 10 : 16,
         heartColor: '#ec4899',
         confettiColors: CONFETTI_COLORS,
     });
@@ -158,16 +162,19 @@ const Celebration = forwardRef((props, ref) => {
         const motionHandler = () => setPrefersReducedMotion(mediaQuery.matches);
         mediaQuery.addEventListener('change', motionHandler);
 
+        // Real mouse only. A tap on a phone also fires emulated mouse events at the tap point, which
+        // used to send every parallax layer (including the tapped YES / music badges) springing
+        // sideways under the finger - it read as the badges flickering when touched.
         const handleMouseMove = (e) => {
-            if (prefersReducedMotion) return;
+            if (prefersReducedMotion || e.pointerType !== 'mouse') return;
             mouseX.set(e.clientX / window.innerWidth);
             mouseY.set(e.clientY / window.innerHeight);
         };
 
-        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('pointermove', handleMouseMove);
 
         return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('pointermove', handleMouseMove);
             window.removeEventListener('resize', checkMobile);
             mediaQuery.removeEventListener('change', motionHandler);
         };
@@ -245,8 +252,10 @@ const Celebration = forwardRef((props, ref) => {
     return (
         <m.div
             ref={ref}
-            initial={{ clipPath: "circle(0% at 50% 50%)" }}
-            animate={{ clipPath: "circle(150% at 50% 50%)" }}
+            // Desktop: opens out of the middle of the colour wipe. Phones fade in instead - animating
+            // clip-path over this whole animated page flickered there.
+            initial={isTouch ? { opacity: 0 } : { clipPath: "circle(0% at 50% 50%)" }}
+            animate={isTouch ? { opacity: 1 } : { clipPath: "circle(150% at 50% 50%)" }}
             transition={{
                 duration: 1.5,
                 ease: [0.4, 0, 0.2, 1],
@@ -315,7 +324,7 @@ const Celebration = forwardRef((props, ref) => {
                     <m.div
                         initial={{ scale: 0, rotate: -30, opacity: 0 }}
                         animate={controls}
-                        className="absolute -top-4 left-0 md:-top-6 md:-left-2 pointer-events-auto cursor-pointer"
+                        className="absolute -top-4 left-0 md:-top-6 md:-left-2 pointer-events-auto cursor-pointer touch-manipulation"
                         onClick={() => {
                             // Bounce animation
                             controls.start({
@@ -503,7 +512,8 @@ const Celebration = forwardRef((props, ref) => {
                                 initial={{ scale: 0, opacity: 0.6 }}
                                 animate={{ scale: 2.2, opacity: 0 }}
                                 transition={{ duration: 0.9, ease: "easeOut", delay: 0.5 }}
-                                className="absolute inset-0 rounded-full bg-purple-400/40 blur-3xl pointer-events-none"
+                                className="absolute -inset-4 rounded-full pointer-events-none"
+                                style={{ background: 'radial-gradient(closest-side, rgba(192, 132, 252, 0.4) 30%, rgba(192, 132, 252, 0) 100%)' }}
                             />
                         </div>
 
@@ -589,12 +599,16 @@ const Celebration = forwardRef((props, ref) => {
                 style={{ x: layer4X, y: layer4Y }}
                 aria-hidden="true" className="fixed inset-[-15%] pointer-events-none z-30"
             >
-                <div className="absolute top-[10%] right-[15%] text-pink-400/10 blur-xl">
-                    <span aria-hidden="true" className="material-symbols-outlined text-[200px]">favorite</span>
-                </div>
-                <div className="absolute bottom-[5%] left-[5%] text-purple-400/5 blur-2xl">
-                    <span aria-hidden="true" className="material-symbols-outlined text-[300px]">heart_plus</span>
-                </div>
+                {/* Faint colour haze. Was two huge icon glyphs under `blur`; soft gradients look the same
+                    at this opacity without a filter layer being re-computed while the parallax moves. */}
+                <div
+                    className="absolute top-[10%] right-[15%] w-[240px] h-[240px]"
+                    style={{ background: 'radial-gradient(closest-side, rgba(244, 114, 182, 0.09), rgba(244, 114, 182, 0))' }}
+                />
+                <div
+                    className="absolute bottom-[5%] left-[5%] w-[340px] h-[340px]"
+                    style={{ background: 'radial-gradient(closest-side, rgba(192, 132, 252, 0.05), rgba(192, 132, 252, 0))' }}
+                />
             </m.div>
 
             <div aria-hidden="true" className="fixed bottom-8 md:bottom-12 left-0 w-full z-40 text-center pointer-events-none">

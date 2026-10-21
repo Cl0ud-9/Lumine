@@ -13,6 +13,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and the versi
 - The music icon (and any other glyph that is drawn slightly outside its box) is no longer cropped.
 - The cursor's coloured tail now starts inside the heart / glove instead of beside it.
 - Hovering a text field shows the custom cursor again, not the native text caret.
+- **Phone flicker** from "Preparing your heart" through the colour wipe, the proposal and the celebration, including
+  the YES / music badges: the soft background orbs no longer use a blur filter, the loading background and progress
+  bar animate with opacity / transform instead of repainting, the colour wipe is a clipped solid layer instead of a
+  tiny circle scaled 30x, touch screens fade the pages in instead of animating a clip-path over them, the tap
+  highlight flash and sticky `hover:` styles are gone on touch, and a tap no longer makes the celebration's layers
+  spring sideways (that was the emulated mouse move). Phones also get fewer floating particles.
 
 ### Performance
 
